@@ -6,6 +6,8 @@ const {
   EmbedBuilder,
 } = require("discord.js");
 const { errorEmbed, infoEmbed } = require("../utils/embeds");
+const { getSettings } = require("../utils/settings");
+const { emojis } = require("../config/emojis");
 
 // Debounce timers for volume updates per guild
 const volumeUpdateTimers = new Map();
@@ -272,6 +274,30 @@ module.exports = {
 
     // Only process command interactions
     if (!interaction.isChatInputCommand()) return;
+
+    // Check channel restrictions
+    const settings = getSettings(interaction.guildId);
+    if (
+      settings.allowedChannelId &&
+      interaction.channelId !== settings.allowedChannelId &&
+      interaction.commandName !== "kur"
+    ) {
+      const msg = await interaction.reply({
+        embeds: [
+          errorEmbed(
+            `${emojis.error} Bu bot sadece <#${settings.allowedChannelId}> kanalında kullanılabilir!`,
+          ),
+        ],
+        fetchReply: true,
+      });
+
+      // Delete message after 10 seconds
+      setTimeout(() => {
+        msg.delete().catch(() => {});
+      }, 10000);
+
+      return;
+    }
 
     const command = interaction.client.commands.get(interaction.commandName);
 

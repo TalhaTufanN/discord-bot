@@ -65,25 +65,22 @@ const deployCommands = async () => {
     // Construct and prepare an instance of the REST module
     const rest = new REST().setToken(process.env.TOKEN);
 
-    // DELETE ALL GUILD COMMANDS (To avoid duplicates)
-    await rest.put(
+    // Deploy Guild Commands (Instant update)
+    const data = await rest.put(
       Routes.applicationGuildCommands(
         process.env.CLIENT_ID,
         process.env.GUILD_ID,
       ),
-      { body: [] },
-    );
-    console.log("Successfully deleted all guild commands.");
-
-    // Deploy Global Commands (Visible in Bot Profile)
-    const data = await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
       { body: commands },
     );
-
     console.log(
-      `Successfully reloaded ${data.length} global application (/) commands.`,
+      `Successfully reloaded ${data.length} guild application (/) commands.`,
     );
+
+    // Clear global commands (to prevent duplicates) - uncomment if needed
+    // await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), {
+    //   body: [],
+    // });
   } catch (error) {
     console.error("Error deploying commands:", error);
   }
