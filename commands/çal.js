@@ -62,6 +62,28 @@ module.exports = {
         isUrl &&
         (query.includes("spotify.com") || query.includes("open.spotify"));
       let playQuery = query;
+
+      // Clean YouTube Mix/Radio URLs (remove list & start_radio)
+      if (
+        isUrl &&
+        (query.includes("youtube.com") || query.includes("youtu.be"))
+      ) {
+        try {
+          const urlObj = new URL(query);
+          const videoId = urlObj.searchParams.get("v");
+          if (videoId) {
+            // Remove unnecessary parameters that cause issues
+            urlObj.searchParams.delete("list");
+            urlObj.searchParams.delete("start_radio");
+            urlObj.searchParams.delete("index");
+            playQuery = urlObj.toString();
+            console.log(`[YouTube] Cleaned URL: ${query} -> ${playQuery}`);
+          }
+        } catch (e) {
+          console.error("URL cleaning error:", e);
+        }
+      }
+
       let searchTerm = null;
 
       // If it's a Spotify link, get the song name and search YouTube
