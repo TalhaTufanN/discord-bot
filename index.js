@@ -30,7 +30,7 @@ client.commands = new Collection();
 // Initialize DisTube
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
-  plugins: [new YtDlpPlugin({ update: false }), new SpotifyPlugin({})],
+  plugins: [new SpotifyPlugin({}), new YtDlpPlugin({ update: false })],
 });
 
 // Load commands
