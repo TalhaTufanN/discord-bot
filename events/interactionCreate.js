@@ -3,8 +3,39 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  EmbedBuilder,
 } = require("discord.js");
 const { errorEmbed, infoEmbed } = require("../utils/embeds");
+
+// Debounce timers for volume updates per guild
+const volumeUpdateTimers = new Map();
+
+const debounceVolumeUpdate = (interaction, queue) => {
+  const guildId = interaction.guildId;
+
+  // Clear previous timer
+  if (volumeUpdateTimers.has(guildId)) {
+    clearTimeout(volumeUpdateTimers.get(guildId));
+  }
+
+  // Set new timer - update embed after 500ms of no more presses
+  volumeUpdateTimers.set(
+    guildId,
+    setTimeout(async () => {
+      volumeUpdateTimers.delete(guildId);
+      try {
+        const msg = interaction.client.musicMessages?.get(guildId);
+        if (msg && msg.embeds.length > 0) {
+          const updatedEmbed = EmbedBuilder.from(msg.embeds[0]);
+          const fields = updatedEmbed.data.fields;
+          const sesField = fields?.find((f) => f.name === "Ses");
+          if (sesField) sesField.value = `\`%${queue.volume}\``;
+          await msg.edit({ embeds: [updatedEmbed] });
+        }
+      } catch (e) {}
+    }, 500),
+  );
+};
 
 module.exports = {
   name: Events.InteractionCreate,
@@ -178,6 +209,7 @@ module.exports = {
                 try {
                   await interaction.deferUpdate();
                 } catch (e) {}
+                debounceVolumeUpdate(interaction, queue);
                 break;
 
               case "music_vol_up":
@@ -186,6 +218,7 @@ module.exports = {
                 try {
                   await interaction.deferUpdate();
                 } catch (e) {}
+                debounceVolumeUpdate(interaction, queue);
                 break;
             }
             break;
