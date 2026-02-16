@@ -52,9 +52,14 @@ for (const file of commandFiles) {
 const deployCommands = async () => {
   try {
     console.log(`Started refreshing ${commands.length} application (/) commands.`);
+    console.log(`Commands to load: ${commands.map(c => c.name).join(', ')}`);
     
     // Construct and prepare an instance of the REST module
     const rest = new REST().setToken(process.env.TOKEN);
+
+    // DELETE ALL GLOBAL COMMANDS (To remove old English commands)
+    await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: [] });
+    console.log('Successfully deleted all application commands.');
     
     // The put method is used to fully refresh all commands in the guild (instant update)
     const data = await rest.put(
