@@ -1,12 +1,18 @@
-require('dotenv').config();
-const { Client, GatewayIntentBits, Collection, REST, Routes } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-const { DisTube } = require('distube');
-const { SpotifyPlugin } = require('@distube/spotify');
-const { SoundCloudPlugin } = require('@distube/soundcloud');
-const { YtDlpPlugin } = require('@distube/yt-dlp');
-const { emojis } = require('./config/emojis');
+require("dotenv").config();
+const {
+  Client,
+  GatewayIntentBits,
+  Collection,
+  REST,
+  Routes,
+} = require("discord.js");
+const fs = require("fs");
+const path = require("path");
+const { DisTube } = require("distube");
+const { SpotifyPlugin } = require("@distube/spotify");
+// const { SoundCloudPlugin } = require("@distube/soundcloud");
+const { YtDlpPlugin } = require("@distube/yt-dlp");
+const { emojis } = require("./config/emojis");
 
 // Create a new client instance
 const client = new Client({
@@ -14,8 +20,8 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+    GatewayIntentBits.MessageContent,
+  ],
 });
 
 // Create collections for commands
@@ -24,63 +30,75 @@ client.commands = new Collection();
 // Initialize DisTube
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
-  plugins: [
-    new SpotifyPlugin({}),
-    new SoundCloudPlugin(),
-    new YtDlpPlugin()
-  ]
+  plugins: [new YtDlpPlugin(), new SpotifyPlugin({})],
 });
 
 // Load commands
-const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+const commandsPath = path.join(__dirname, "commands");
+const commandFiles = fs
+  .readdirSync(commandsPath)
+  .filter((file) => file.endsWith(".js"));
 const commands = [];
 
 for (const file of commandFiles) {
   const filePath = path.join(commandsPath, file);
   const command = require(filePath);
-  
-  if ('data' in command && 'execute' in command) {
+
+  if ("data" in command && "execute" in command) {
     client.commands.set(command.data.name, command);
     commands.push(command.data.toJSON());
   } else {
-    console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+    console.log(
+      `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`,
+    );
   }
 }
 
 // Deploy slash commands
 const deployCommands = async () => {
   try {
-    console.log(`Started refreshing ${commands.length} application (/) commands.`);
-    console.log(`Commands to load: ${commands.map(c => c.name).join(', ')}`);
-    
+    console.log(
+      `Started refreshing ${commands.length} application (/) commands.`,
+    );
+    console.log(`Commands to load: ${commands.map((c) => c.name).join(", ")}`);
+
     // Construct and prepare an instance of the REST module
     const rest = new REST().setToken(process.env.TOKEN);
 
     // DELETE ALL GUILD COMMANDS (To avoid duplicates)
-    await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID), { body: [] });
-    console.log('Successfully deleted all guild commands.');
-    
+    await rest.put(
+      Routes.applicationGuildCommands(
+        process.env.CLIENT_ID,
+        process.env.GUILD_ID,
+      ),
+      { body: [] },
+    );
+    console.log("Successfully deleted all guild commands.");
+
     // Deploy Global Commands (Visible in Bot Profile)
     const data = await rest.put(
       Routes.applicationCommands(process.env.CLIENT_ID),
       { body: commands },
     );
-    
-    console.log(`Successfully reloaded ${data.length} global application (/) commands.`);
+
+    console.log(
+      `Successfully reloaded ${data.length} global application (/) commands.`,
+    );
   } catch (error) {
-    console.error('Error deploying commands:', error);
+    console.error("Error deploying commands:", error);
   }
 };
 
 // Load events
-const eventsPath = path.join(__dirname, 'events');
-const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+const eventsPath = path.join(__dirname, "events");
+const eventFiles = fs
+  .readdirSync(eventsPath)
+  .filter((file) => file.endsWith(".js"));
 
 for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
   const event = require(filePath);
-  
+
   if (event.once) {
     client.once(event.name, (...args) => event.execute(...args));
   } else {
@@ -89,11 +107,11 @@ for (const file of eventFiles) {
 }
 
 // DisTube events
-const { handleDistubeEvents } = require('./utils/distubeEvents');
+const { handleDistubeEvents } = require("./utils/distubeEvents");
 handleDistubeEvents(client);
 
 // Deploy commands and then log in to Discord
 (async () => {
   await deployCommands();
   client.login(process.env.TOKEN);
-})(); 
+})();
