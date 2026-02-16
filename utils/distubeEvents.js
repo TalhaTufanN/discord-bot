@@ -20,23 +20,26 @@ exports.handleDistubeEvents = (client) => {
     const guildId = queue.textChannel.guild.id;
     const lastMessage = client.musicMessages.get(guildId);
 
+    // Delete the old message so the new one is always at the bottom
     if (lastMessage) {
       try {
-        // Try to edit the existing message
-        await lastMessage.edit({ embeds: [embed], components: components });
-        return; // Success
+        await lastMessage.delete();
       } catch (error) {
-        // Message likely deleted or invalid, remove from map
-        client.musicMessages.delete(guildId);
+        // Message already deleted or invalid, ignore
       }
+      client.musicMessages.delete(guildId);
     }
 
-    // Send new message if no existing message or edit failed
-    const newMessage = await queue.textChannel.send({
-      embeds: [embed],
-      components: components,
-    });
-    client.musicMessages.set(guildId, newMessage);
+    // Send a new message (always at the bottom of the channel)
+    try {
+      const newMessage = await queue.textChannel.send({
+        embeds: [embed],
+        components: components,
+      });
+      client.musicMessages.set(guildId, newMessage);
+    } catch (error) {
+      console.error("Failed to send music message:", error);
+    }
   };
 
   // When a song starts playing
