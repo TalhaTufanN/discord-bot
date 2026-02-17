@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "deploy": "node deploy.js"
   },
   "keywords": [
     "discord",
@@ -28,5 +29,8 @@
     "discord.js": "^14.19.3",
     "distube": "^5.2.3",
     "dotenv": "^16.5.0"
+  },
+  "devDependencies": {
+    "ssh2": "^1.17.0"
   }
 }

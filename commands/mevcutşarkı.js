@@ -35,9 +35,7 @@ module.exports = {
             : `${emojis.play} Şu Anda Çalıyor`,
         )
         .setDescription(
-          stationName
-            ? `**${stationName}**\n[Yayın Linki](${song.url})`
-            : `[${song.name}](${song.url})`,
+          stationName ? `**${stationName}**` : `[${song.name}](${song.url})`,
         )
         .addFields(
           {
