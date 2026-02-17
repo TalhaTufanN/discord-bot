@@ -11,6 +11,7 @@ const config = {
 const serverEnvVars = [
   `TOKEN2=${process.env.TOKEN2}`,
   `CLIENT_ID2=${process.env.CLIENT_ID2}`,
+  `GUILD_ID2=${process.env.GUILD_ID2}`,
 ];
 
 const conn = new Client();
