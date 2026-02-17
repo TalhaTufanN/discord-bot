@@ -55,11 +55,8 @@ exports.handleDistubeEvents = (client) => {
       .setColor("#2B2D31") // Discord dark theme background
       .setAuthor({
         name: "Şimdi Çalıyor",
-        iconURL:
-          "https://cdn.discordapp.com/emojis/1136657993074352168.webp?size=96&quality=lossless", // Small play icon or bot avatar
-        url: "https://discord.gg/fKgRz26k3p",
       })
-      .setDescription(`**${songName}**\n${uploader} • ${duration}`)
+      .setDescription(`**${songName}**\n${uploader}`)
       .addFields(
         { name: "Süre", value: `\`${duration}\``, inline: true },
         { name: "İsteyen", value: `${song.user}`, inline: true },

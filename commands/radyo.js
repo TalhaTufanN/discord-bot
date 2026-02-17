@@ -196,11 +196,7 @@ module.exports = {
 
     // Initial Reply
     const response = await interaction.reply({
-      embeds: [
-        infoEmbed(
-          "Dinlemek istediğiniz radyo istasyonunu seçin veya 7/24 modunu ayarlayın.",
-        ),
-      ],
+      embeds: [infoEmbed("Dinlemek istediğiniz radyo istasyonunu seçin.")],
       components: generateComponents(is247Active),
     });
 
