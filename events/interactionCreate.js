@@ -109,13 +109,15 @@ module.exports = {
 
             switch (customId) {
               case "music_pause_resume": {
-                // Determine if it's a radio station
                 const song = queue.songs[0];
-                const isRadio = song.metadata?.stationName;
+                const isRadio = song.metadata && song.metadata.stationName;
+                console.log(
+                  `[PAUSE/RESUME] Action triggered. isRadio: ${!!isRadio}, queuePaused: ${queue.paused}`,
+                );
 
                 // Get the current rows from the message
                 const rows = interaction.message.components.map((row) =>
-                  ActionRowBuilder.from(row),
+                  ActionRowBuilder.from(row.toJSON()),
                 );
 
                 // Find the pause/resume button in any row
@@ -128,6 +130,9 @@ module.exports = {
                 }
 
                 if (!pauseButton) {
+                  console.log(
+                    "[PAUSE/RESUME] Error: Button not found in components!",
+                  );
                   return interaction.reply({
                     embeds: [errorEmbed("Kontrol butonu bulunamadı!")],
                     ephemeral: true,
@@ -136,18 +141,20 @@ module.exports = {
 
                 if (queue.paused) {
                   queue.resume();
-                  // Update button to "Duraklat" state (Music is playing)
                   pauseButton.setLabel(isRadio ? "Durdur" : "Duraklat");
                   pauseButton.setEmoji("<:pause:1472909990888214621>");
                   pauseButton.setStyle(ButtonStyle.Secondary);
                 } else {
                   queue.pause();
-                  // Update button to "Oynat" state (Music is paused)
                   pauseButton.setLabel(isRadio ? "Oynat" : "Devam Et");
-                  pauseButton.setEmoji("<:play:1472914201117982847>");
+                  // Use standard emoji as fallback to ensure it renders
+                  pauseButton.setEmoji("▶️");
                   pauseButton.setStyle(ButtonStyle.Secondary);
                 }
 
+                console.log(
+                  `[PAUSE/RESUME] Updating message. New label: ${pauseButton.data.label}`,
+                );
                 await interaction.update({ components: rows });
                 break;
               }
