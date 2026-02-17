@@ -65,17 +65,21 @@ const deployCommands = async () => {
     // Construct and prepare an instance of the REST module
     const rest = new REST().setToken(process.env.TOKEN);
 
-    // Deploy Guild Commands (Instant update)
-    const data = await rest.put(
-      Routes.applicationGuildCommands(
-        process.env.CLIENT_ID,
-        process.env.GUILD_ID,
-      ),
-      { body: commands },
-    );
-    console.log(
-      `Successfully reloaded ${data.length} guild application (/) commands.`,
-    );
+    // Support multiple Guild IDs (comma separated in .env)
+    const guildIds = process.env.GUILD_ID.split(",").map((id) => id.trim());
+
+    for (const guildId of guildIds) {
+      if (!guildId) continue;
+
+      // Deploy Guild Commands (Instant update)
+      const data = await rest.put(
+        Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
+        { body: commands },
+      );
+      console.log(
+        `[${guildId}] Successfully reloaded ${data.length} guild application (/) commands.`,
+      );
+    }
 
     // Clear global commands (to prevent duplicates) - uncomment if needed
     // await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), {
