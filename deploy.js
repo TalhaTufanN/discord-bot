@@ -62,7 +62,8 @@ async function deploy() {
   const syncCommands = serverEnvVars
     .map((v) => {
       const key = v.split("=")[0];
-      return `grep -q "^${key}=" .env || echo "${v}" >> .env`;
+      // Use sed to remove existing key and then append new value to ensure update
+      return `touch .env && sed -i '/^${key}=/d' .env && echo "${v}" >> .env`;
     })
     .join(" && ");
 
