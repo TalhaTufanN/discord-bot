@@ -108,32 +108,49 @@ module.exports = {
             }
 
             switch (customId) {
-              case "music_pause_resume":
+              case "music_pause_resume": {
+                // Determine if it's a radio station
+                const song = queue.songs[0];
+                const isRadio = song.metadata?.stationName;
+
                 // Get the current rows from the message
                 const rows = interaction.message.components.map((row) =>
                   ActionRowBuilder.from(row),
                 );
-                const buttonRow = rows[0];
-                const pauseButton = buttonRow.components.find(
-                  (c) => c.data.custom_id === "music_pause_resume",
-                );
+
+                // Find the pause/resume button in any row
+                let pauseButton = null;
+                for (const row of rows) {
+                  pauseButton = row.components.find(
+                    (c) => c.data.custom_id === "music_pause_resume",
+                  );
+                  if (pauseButton) break;
+                }
+
+                if (!pauseButton) {
+                  return interaction.reply({
+                    embeds: [errorEmbed("Kontrol butonu bulunamadı!")],
+                    ephemeral: true,
+                  });
+                }
 
                 if (queue.paused) {
                   queue.resume();
                   // Update button to "Duraklat" state (Music is playing)
-                  pauseButton.setLabel("Duraklat");
+                  pauseButton.setLabel(isRadio ? "Durdur" : "Duraklat");
                   pauseButton.setEmoji("<:pause:1472909990888214621>");
                   pauseButton.setStyle(ButtonStyle.Secondary);
                 } else {
                   queue.pause();
                   // Update button to "Oynat" state (Music is paused)
-                  pauseButton.setLabel("Oynat");
+                  pauseButton.setLabel(isRadio ? "Oynat" : "Devam Et");
                   pauseButton.setEmoji("<:play:1472914201117982847>");
-                  pauseButton.setStyle(ButtonStyle.Secondary); // Blue when paused/active state
+                  pauseButton.setStyle(ButtonStyle.Secondary);
                 }
 
                 await interaction.update({ components: rows });
                 break;
+              }
 
               case "music_shuffle":
                 queue.shuffle();
