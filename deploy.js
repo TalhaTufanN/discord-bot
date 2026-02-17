@@ -16,8 +16,8 @@ const commands = [
   "npm install --production", // Install dependencies (might overwrite patch)
   // CRITICAL PATCH: Remove 'noCallHome: true' to fix yt-dlp crash
   "sed -i '/noCallHome: true,/d' node_modules/@distube/yt-dlp/dist/index.js",
-  "pm2 restart raadiotr --update-env",
-  "pm2 logs raadiotr --lines 20 --nostream", // Show logs
+  "pm2 startOrRestart ecosystem.config.js --update-env",
+  "pm2 status", // Show status of both bots
 ];
 
 function runLocalCommand(cmd) {
