@@ -50,7 +50,23 @@ async function deploy() {
     // Continue? Maybe user pushed manually.
   }
 
-  // 2. Remote Update
+  // 2. Sync Secrets to Remote .env
+  console.log("🔑 Synchronizing .env secrets to server...");
+  const serverEnvVars = [
+    `TOKEN2=${process.env.TOKEN2}`,
+    `CLIENT_ID2=${process.env.CLIENT_ID2}`,
+    `GUILD_ID=${process.env.GUILD_ID}`,
+    `GUILD_ID2=${process.env.GUILD_ID2}`,
+  ].filter((v) => !v.endsWith("undefined")); // Only sync defined vars
+
+  const syncCommands = serverEnvVars
+    .map((v) => {
+      const key = v.split("=")[0];
+      return `grep -q "^${key}=" .env || echo "${v}" >> .env`;
+    })
+    .join(" && ");
+
+  // 3. Remote Update
   console.log("📡 Connecting to Remote Server...");
   const conn = new Client();
 
@@ -58,9 +74,10 @@ async function deploy() {
     .on("ready", () => {
       console.log("✅ Connected! Executing update scripts...");
 
-      const fullCommand = commands.join(" && ");
+      // Prepend sync to the command list
+      const remoteTask = `cd /root/discord-bot && (${syncCommands}) && ${commands.join(" && ")}`;
 
-      conn.exec(fullCommand, (err, stream) => {
+      conn.exec(remoteTask, (err, stream) => {
         if (err) throw err;
 
         stream
