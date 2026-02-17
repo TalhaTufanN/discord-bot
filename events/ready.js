@@ -7,7 +7,7 @@ module.exports = {
     console.log(`Hazır! ${client.user.tag} olarak giriş yapıldı`);
 
     // Set bot activity
-    client.user.setActivity("/çal", { type: ActivityType.Listening });
+    client.user.setActivity("/çal | /radyo", { type: ActivityType.Listening });
 
     console.log(`Bot ${client.guilds.cache.size} sunucuda aktif`);
   },
