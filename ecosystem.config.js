@@ -17,7 +17,7 @@ module.exports = {
       env: {
         TOKEN: process.env.TOKEN2,
         CLIENT_ID: process.env.CLIENT_ID2,
-        GUILD_ID: process.env.GUILD_ID2,
+        GUILD_ID: process.env.GUILD_ID,
       },
     },
   ],
