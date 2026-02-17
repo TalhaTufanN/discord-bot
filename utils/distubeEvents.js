@@ -88,7 +88,7 @@ exports.handleDistubeEvents = (client) => {
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId("music_pause_resume")
-        .setLabel("Duraklat")
+        .setLabel(isRadio ? "Durdur" : "Duraklat")
         .setEmoji("<:pause:1472909990888214621>")
         .setStyle(ButtonStyle.Secondary), // Default state is Playing, so action is Pause
       new ButtonBuilder()
