@@ -109,18 +109,24 @@ module.exports = {
 
             switch (customId) {
               case "music_pause_resume": {
+                // Buying time with deferUpdate to avoid 10062 timeouts
+                try {
+                  await interaction.deferUpdate();
+                } catch (e) {
+                  console.error("[PAUSE/RESUME] Defer failed:", e.message);
+                }
+
                 const song = queue.songs[0];
                 const isRadio = song.metadata && song.metadata.stationName;
                 console.log(
-                  `[PAUSE/RESUME] Action triggered. isRadio: ${!!isRadio}, queuePaused: ${queue.paused}`,
+                  `[PAUSE/RESUME] Processing. Current paused: ${queue.paused}, Radio: ${!!isRadio}`,
                 );
 
-                // Get the current rows from the message
+                // Find the pause/resume button in any row
                 const rows = interaction.message.components.map((row) =>
                   ActionRowBuilder.from(row.toJSON()),
                 );
 
-                // Find the pause/resume button in any row
                 let pauseButton = null;
                 for (const row of rows) {
                   pauseButton = row.components.find(
@@ -130,10 +136,7 @@ module.exports = {
                 }
 
                 if (!pauseButton) {
-                  console.log(
-                    "[PAUSE/RESUME] Error: Button not found in components!",
-                  );
-                  return interaction.reply({
+                  return interaction.followUp({
                     embeds: [errorEmbed("Kontrol butonu bulunamadı!")],
                     ephemeral: true,
                   });
@@ -147,15 +150,16 @@ module.exports = {
                 } else {
                   queue.pause();
                   pauseButton.setLabel(isRadio ? "Oynat" : "Devam Et");
-                  // Use standard emoji as fallback to ensure it renders
                   pauseButton.setEmoji("▶️");
                   pauseButton.setStyle(ButtonStyle.Secondary);
                 }
 
                 console.log(
-                  `[PAUSE/RESUME] Updating message. New label: ${pauseButton.data.label}`,
+                  `[PAUSE/RESUME] State toggled. New label: ${pauseButton.data.label}`,
                 );
-                await interaction.update({ components: rows });
+                await interaction.editReply({ components: rows }).catch((e) => {
+                  console.error("[PAUSE/RESUME] Update failed:", e.message);
+                });
                 break;
               }
 
@@ -288,10 +292,17 @@ module.exports = {
         return;
       } catch (error) {
         console.error("Error handling button interaction:", error);
-        await interaction.reply({
+
+        const responseData = {
           embeds: [errorEmbed("Bu buton işlenirken bir hata oluştu!")],
           ephemeral: true,
-        });
+        };
+
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp(responseData).catch(() => {});
+        } else {
+          await interaction.reply(responseData).catch(() => {});
+        }
         return;
       }
     }
