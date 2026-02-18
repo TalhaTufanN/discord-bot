@@ -52,17 +52,16 @@ module.exports = {
       });
     }
 
+    // Emoji boş bırakılırsa veya "-" yazılırsa varsayılan 📻 kullan
+    const finalEmoji = !emojiRaw || emojiRaw === "-" ? "📻" : emojiRaw;
+
     const newStation = {
       name,
       value: url,
       description,
+      emoji: finalEmoji,
       category,
     };
-
-    // Emoji geçerliyse ekle; boş bırakılırsa veya "-" yazılırsa hiç eklemeyelim
-    if (emojiRaw && emojiRaw !== "-") {
-      newStation.emoji = emojiRaw;
-    }
 
     stations.push(newStation);
     try {
