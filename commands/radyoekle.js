@@ -1,28 +1,12 @@
-const {
-  SlashCommandBuilder,
-  PermissionFlagsBits,
-} = require("discord.js");
-const fs = require("fs");
-const path = require("path");
-const { errorEmbed, successEmbed, infoEmbed } = require("../utils/embeds");
-const { stations } = require("../config/radioStations");
-
-const saveStations = () => {
-  const filePath = path.join(__dirname, "..", "config", "radioStations.js");
-
-  const content =
-    "const stations = " +
-    JSON.stringify(stations, null, 2) +
-    ";\n\nmodule.exports = { stations };\n";
-
-  fs.writeFileSync(filePath, content, "utf8");
-};
+const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
+const { errorEmbed, successEmbed } = require("../utils/embeds");
+const { stations, saveStations } = require("../utils/radioStorage");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("radyoekle")
     .setDescription("Radyo listesine yeni bir istasyon ekler")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addStringOption((option) =>
       option
         .setName("isim")

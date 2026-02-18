@@ -42,6 +42,18 @@ const debounceVolumeUpdate = (interaction, queue) => {
 module.exports = {
   name: Events.InteractionCreate,
   async execute(interaction) {
+    // Autocomplete interactions
+    if (interaction.isAutocomplete()) {
+      const command = interaction.client.commands.get(interaction.commandName);
+      if (!command || !command.autocomplete) return;
+      try {
+        await command.autocomplete(interaction);
+      } catch (error) {
+        console.error(`Error running autocomplete for ${interaction.commandName}`, error);
+      }
+      return;
+    }
+
     // Handle button interactions
     if (interaction.isButton()) {
       try {
