@@ -27,12 +27,6 @@ module.exports = {
     )
     .addStringOption((option) =>
       option
-        .setName("emoji")
-        .setDescription("Emoji (örn: 📻) — boş bırakabilirsiniz")
-        .setRequired(false),
-    )
-    .addStringOption((option) =>
-      option
         .setName("kategori")
         .setDescription("Kategori (örn: Pop, Rock, Arabesk, Yabancı vb.)")
         .setRequired(true),
@@ -42,7 +36,6 @@ module.exports = {
     const name = interaction.options.getString("isim", true);
     const url = interaction.options.getString("url", true);
     const description = interaction.options.getString("aciklama", true);
-    const emojiRaw = interaction.options.getString("emoji");
     const category = interaction.options.getString("kategori", true);
 
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -52,17 +45,11 @@ module.exports = {
       });
     }
 
-    // Emoji boş/"-" veya geçersiz ise varsayılan 📻 kullan
-    // Basit bir kontrol: sade metin (sadece harf/rakam/altçizgi/tire) ise geçersiz say
-    const isPlainText = emojiRaw && /^[\w-]+$/.test(emojiRaw);
-    const finalEmoji =
-      !emojiRaw || emojiRaw === "-" || isPlainText ? "📻" : emojiRaw;
-
     const newStation = {
       name,
       value: url,
       description,
-      emoji: finalEmoji,
+      emoji: "📻",
       category,
     };
 
@@ -86,7 +73,7 @@ module.exports = {
     await interaction.reply({
       embeds: [
         successEmbed(
-          `Yeni radyo istasyonu eklendi:\n**İsim:** ${name}\n**URL:** ${url}\n**Kategori:** ${category}\n**Emoji:** ${emoji}`,
+          `Yeni radyo istasyonu eklendi:\n**İsim:** ${name}\n**URL:** ${url}\n**Kategori:** ${category}\n**Emoji:** 📻`,
         ),
       ],
     });
