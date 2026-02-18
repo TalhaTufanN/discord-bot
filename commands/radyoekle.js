@@ -52,8 +52,11 @@ module.exports = {
       });
     }
 
-    // Emoji boş bırakılırsa veya "-" yazılırsa varsayılan 📻 kullan
-    const finalEmoji = !emojiRaw || emojiRaw === "-" ? "📻" : emojiRaw;
+    // Emoji boş/"-" veya geçersiz ise varsayılan 📻 kullan
+    // Basit bir kontrol: sade metin (sadece harf/rakam/altçizgi/tire) ise geçersiz say
+    const isPlainText = emojiRaw && /^[\w-]+$/.test(emojiRaw);
+    const finalEmoji =
+      !emojiRaw || emojiRaw === "-" || isPlainText ? "📻" : emojiRaw;
 
     const newStation = {
       name,

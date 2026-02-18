@@ -58,7 +58,8 @@ module.exports = {
               .setValue(index.toString()) // Use INDEX as value
               .setDescription(station.description);
 
-            if (station.emoji) {
+            // Emoji geçerli görünüyorsa ekle (sade metinler hariç)
+            if (station.emoji && !/^[\w-]+$/.test(station.emoji)) {
               option.setEmoji(station.emoji);
             }
 
