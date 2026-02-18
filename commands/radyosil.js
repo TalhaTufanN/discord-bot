@@ -1,6 +1,9 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const { errorEmbed, successEmbed } = require("../utils/embeds");
-const { stations, saveStations } = require("../utils/radioStorage");
+const {
+  getGuildStations,
+  removeGuildStationByName,
+} = require("../utils/radioStorage");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -16,29 +19,15 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    const guildId = interaction.guildId;
     const name = interaction.options.getString("isim", true);
 
-    const index = stations.findIndex(
-      (s) => s.name.toLowerCase() === name.toLowerCase(),
-    );
-
-    if (index === -1) {
-      return interaction.reply({
-        embeds: [errorEmbed("Belirtilen isimde bir radyo istasyonu bulunamadı.")],
-        ephemeral: true,
-      });
-    }
-
-    const [removed] = stations.splice(index, 1);
-
-    try {
-      saveStations();
-    } catch (e) {
-      console.error("Radyo istasyonu silinirken hata oluştu:", e);
+    const removed = removeGuildStationByName(guildId, name);
+    if (!removed) {
       return interaction.reply({
         embeds: [
           errorEmbed(
-            "Radyo listeden kaldırıldı fakat dosyaya kaydedilemedi. Lütfen logları kontrol edin.",
+            "Belirtilen isimde bir radyo istasyonu bulunamadı veya varsayılan listede olabilir.",
           ),
         ],
         ephemeral: true,
@@ -55,9 +44,11 @@ module.exports = {
   },
 
   async autocomplete(interaction) {
+    const guildId = interaction.guildId;
     const focused = interaction.options.getFocused();
     const query = focused.toLowerCase();
 
+    const stations = getGuildStations(guildId);
     const matched = stations
       .filter((s) => !query || s.name.toLowerCase().includes(query))
       .slice(0, 25)

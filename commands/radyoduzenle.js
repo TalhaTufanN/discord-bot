@@ -1,6 +1,9 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const { errorEmbed, successEmbed } = require("../utils/embeds");
-const { stations, saveStations } = require("../utils/radioStorage");
+const {
+  getGuildStations,
+  updateGuildStationByName,
+} = require("../utils/radioStorage");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -46,6 +49,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    const guildId = interaction.guildId;
     const name = interaction.options.getString("isim", true);
     const newName = interaction.options.getString("yeni_isim");
     const url = interaction.options.getString("url");
@@ -53,13 +57,9 @@ module.exports = {
     const emoji = interaction.options.getString("emoji");
     const category = interaction.options.getString("kategori");
 
-    const station = stations.find(
-      (s) => s.name.toLowerCase() === name.toLowerCase(),
-    );
-
-    if (!station) {
+    if (!newName && !url && !description && !emoji && !category) {
       return interaction.reply({
-        embeds: [errorEmbed("Belirtilen isimde bir radyo istasyonu bulunamadı.")],
+        embeds: [errorEmbed("Düzenlemek için en az bir alan belirtmelisiniz.")],
         ephemeral: true,
       });
     }
@@ -71,27 +71,19 @@ module.exports = {
       });
     }
 
-    if (!newName && !url && !description && !emoji && !category) {
-      return interaction.reply({
-        embeds: [errorEmbed("Düzenlemek için en az bir alan belirtmelisiniz.")],
-        ephemeral: true,
-      });
-    }
+    const patch = {};
+    if (newName) patch.name = newName;
+    if (url) patch.value = url;
+    if (description) patch.description = description;
+    if (emoji) patch.emoji = emoji;
+    if (category) patch.category = category;
 
-    if (newName) station.name = newName;
-    if (url) station.value = url;
-    if (description) station.description = description;
-    if (emoji) station.emoji = emoji;
-    if (category) station.category = category;
-
-    try {
-      saveStations();
-    } catch (e) {
-      console.error("Radyo istasyonu düzenlenirken hata oluştu:", e);
+    const updated = updateGuildStationByName(guildId, name, patch);
+    if (!updated) {
       return interaction.reply({
         embeds: [
           errorEmbed(
-            "Değişiklikler bellekte uygulandı fakat dosyaya kaydedilemedi. Lütfen logları kontrol edin.",
+            "Belirtilen isimde bir radyo istasyonu bulunamadı veya varsayılan listede olabilir.",
           ),
         ],
         ephemeral: true,
@@ -101,16 +93,18 @@ module.exports = {
     await interaction.reply({
       embeds: [
         successEmbed(
-          `Radyo istasyonu güncellendi:\n**İsim:** ${station.name}\n**URL:** ${station.value}\n**Kategori:** ${station.category}\n**Emoji:** ${station.emoji}`,
+          `Radyo istasyonu güncellendi:\n**İsim:** ${updated.name}\n**URL:** ${updated.value}\n**Kategori:** ${updated.category}\n**Emoji:** ${updated.emoji}`,
         ),
       ],
     });
   },
 
   async autocomplete(interaction) {
+    const guildId = interaction.guildId;
     const focused = interaction.options.getFocused();
     const query = focused.toLowerCase();
 
+    const stations = getGuildStations(guildId);
     const matched = stations
       .filter((s) => !query || s.name.toLowerCase().includes(query))
       .slice(0, 25)

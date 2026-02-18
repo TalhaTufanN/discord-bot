@@ -9,7 +9,7 @@ const {
 } = require("discord.js");
 const { errorEmbed, infoEmbed, successEmbed } = require("../utils/embeds");
 const { emojis } = require("../config/emojis");
-const { stations } = require("../config/radioStations");
+const { getAllStationsForGuild } = require("../utils/radioStorage");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,6 +19,8 @@ module.exports = {
   async execute(interaction) {
     const voiceChannel = interaction.member.voice.channel;
     const guildId = interaction.guildId;
+
+    const stations = getAllStationsForGuild(guildId);
 
     // Check if user is in a voice channel
     if (!voiceChannel) {

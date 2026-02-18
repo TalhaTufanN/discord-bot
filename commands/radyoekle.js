@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const { errorEmbed, successEmbed } = require("../utils/embeds");
-const { stations, saveStations } = require("../utils/radioStorage");
+const { addGuildStation } = require("../utils/radioStorage");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -33,6 +33,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    const guildId = interaction.guildId;
     const name = interaction.options.getString("isim", true);
     const url = interaction.options.getString("url", true);
     const description = interaction.options.getString("aciklama", true);
@@ -53,9 +54,8 @@ module.exports = {
       category,
     };
 
-    stations.push(newStation);
     try {
-      saveStations();
+      addGuildStation(guildId, newStation);
     } catch (e) {
       console.error("Radyo istasyonu kaydedilirken hata oluştu:", e);
 
