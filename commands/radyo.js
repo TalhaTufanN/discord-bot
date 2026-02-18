@@ -52,13 +52,18 @@ module.exports = {
         .setCustomId("radio_station_select")
         .setPlaceholder("Bir radyo istasyonu seçin...")
         .addOptions(
-          ...stations.map((station, index) =>
-            new StringSelectMenuOptionBuilder()
+          ...stations.map((station, index) => {
+            const option = new StringSelectMenuOptionBuilder()
               .setLabel(station.name)
               .setValue(index.toString()) // Use INDEX as value
-              .setDescription(station.description)
-              .setEmoji(station.emoji),
-          ),
+              .setDescription(station.description);
+
+            if (station.emoji) {
+              option.setEmoji(station.emoji);
+            }
+
+            return option;
+          }),
           new StringSelectMenuOptionBuilder()
             .setLabel("Menüyü Kapat")
             .setValue("close_menu")

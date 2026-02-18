@@ -28,8 +28,8 @@ module.exports = {
     .addStringOption((option) =>
       option
         .setName("emoji")
-        .setDescription("Emoji (örn: 📻)")
-        .setRequired(true),
+        .setDescription("Emoji (örn: 📻) — boş bırakabilirsiniz")
+        .setRequired(false),
     )
     .addStringOption((option) =>
       option
@@ -42,7 +42,7 @@ module.exports = {
     const name = interaction.options.getString("isim", true);
     const url = interaction.options.getString("url", true);
     const description = interaction.options.getString("aciklama", true);
-    const emoji = interaction.options.getString("emoji", true);
+    const emojiRaw = interaction.options.getString("emoji");
     const category = interaction.options.getString("kategori", true);
 
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -56,9 +56,13 @@ module.exports = {
       name,
       value: url,
       description,
-      emoji,
       category,
     };
+
+    // Emoji geçerliyse ekle; boş bırakılırsa veya "-" yazılırsa hiç eklemeyelim
+    if (emojiRaw && emojiRaw !== "-") {
+      newStation.emoji = emojiRaw;
+    }
 
     stations.push(newStation);
     try {
