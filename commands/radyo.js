@@ -140,6 +140,7 @@ module.exports = {
 
   async execute(interaction) {
     const voiceChannel = interaction.member.voice.channel;
+    const guildId = interaction.guildId;
 
     // Check if user is in a voice channel
     if (!voiceChannel) {
@@ -194,11 +195,27 @@ module.exports = {
     // Initial state
     let is247Active = interaction.client.radioMode === true; // Check global state
 
+    // Eski radyo menüsünü (varsa) pasifleştir
+    if (!interaction.client.radioPanels) {
+      interaction.client.radioPanels = new Map();
+    }
+
+    const previousPanel = interaction.client.radioPanels.get(guildId);
+    if (previousPanel) {
+      // Metni/embedi bırak, sadece etkileşimi kapat
+      previousPanel
+        .edit({ components: [] })
+        .catch(() => previousPanel.delete().catch(() => {}));
+    }
+
     // Initial Reply
     const response = await interaction.reply({
       embeds: [infoEmbed("Dinlemek istediğiniz radyo istasyonunu seçin.")],
       components: generateComponents(is247Active),
     });
+
+    // Bu sunucu için son radyo panel mesajını kaydet
+    interaction.client.radioPanels.set(guildId, response);
 
     const collector = response.createMessageComponentCollector({
       time: 300000,
@@ -248,9 +265,13 @@ module.exports = {
           if (selectedValue === "close_menu") {
             await i.editReply({
               content: "Radyo menüsü kapatıldı.",
-              embeds: [],
               components: [],
-            });
+            }).catch(() => {});
+
+            if (i.client.radioPanels) {
+              i.client.radioPanels.delete(i.guildId);
+            }
+
             return;
           }
 
@@ -312,8 +333,15 @@ module.exports = {
     });
 
     collector.on("end", async (collected, reason) => {
-      if (reason === "time" && collected.size === 0) {
-        await interaction.editReply({ components: [] }).catch(() => {});
+      // Süre dolunca sadece butonları/menüyü kaldır, metni bırak
+      if (reason === "time") {
+        await interaction
+          .editReply({ components: [] })
+          .catch(() => interaction.deleteReply().catch(() => {}));
+
+        if (interaction.client.radioPanels) {
+          interaction.client.radioPanels.delete(guildId);
+        }
       }
     });
   },
