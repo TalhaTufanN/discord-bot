@@ -1,3 +1,4 @@
+require("node:dns").setDefaultResultOrder("ipv4first");
 require("dotenv").config();
 const {
   Client,
@@ -28,6 +29,7 @@ const client = new Client({
 client.commands = new Collection();
 
 // Initialize DisTube
+const ffmpegPath = require("ffmpeg-static");
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
   plugins: [new SpotifyPlugin({}), new YtDlpPlugin({ update: false })],

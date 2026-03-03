@@ -52,6 +52,7 @@ module.exports = {
     try {
       // Set textChannel for DisTube events
       const queue = interaction.client.distube.getQueue(interaction.guildId);
+
       if (!queue) {
         interaction.client.distube.voices.join(voiceChannel);
       }

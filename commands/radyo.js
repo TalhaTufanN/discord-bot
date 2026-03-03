@@ -149,10 +149,12 @@ module.exports = {
           const selectedValue = i.values[0];
 
           if (selectedValue === "close_menu") {
-            await i.editReply({
-              content: "Radyo menüsü kapatıldı.",
-              components: [],
-            }).catch(() => {});
+            await i
+              .editReply({
+                content: "Radyo menüsü kapatıldı.",
+                components: [],
+              })
+              .catch(() => {});
 
             if (i.client.radioPanels) {
               i.client.radioPanels.delete(i.guildId);
@@ -185,7 +187,7 @@ module.exports = {
 
             const newQueue = i.client.distube.getQueue(i.guildId);
             if (!newQueue) {
-              i.client.distube.voices.join(voiceChannel);
+              await i.client.distube.voices.join(voiceChannel);
             }
 
             await i.client.distube.play(voiceChannel, selectedUrl, {
