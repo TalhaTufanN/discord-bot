@@ -1,4 +1,8 @@
 require("node:dns").setDefaultResultOrder("ipv4first");
+const net = require("node:net");
+if (net.setDefaultAutoSelectFamily) {
+  net.setDefaultAutoSelectFamily(false);
+}
 require("dotenv").config();
 const {
   Client,
