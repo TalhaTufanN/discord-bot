@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "deploy": "node deploy.js"
+    "deploy": "node server/deploy.js"
   },
   "keywords": [
     "discord",
@@ -15,8 +15,8 @@
     "distube",
     "discord.js"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "TalhaTufanN",
+  "license": "UNLICENSED",
   "dependencies": {
     "@discordjs/builders": "^1.11.2",
     "@discordjs/opus": "^0.10.0",
