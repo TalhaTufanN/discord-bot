@@ -3,9 +3,4 @@ node_modules
 package-lock.json
 *.log
 *.txt
-check_logs.js
-fetch_logs.js
-run_remote_test.js
-test-voice.js
-check-voice-deps.js
-stop-bots.js
+server/
