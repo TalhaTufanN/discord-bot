@@ -21,6 +21,29 @@ const stations = [
     category: "Arabesk",
   },
   {
+    name: "Best FM",
+    value:
+      "https://officialbestfm.radyotvonline.net/bestfmofficial?/;stream.mp3",
+    description: "Karışık",
+    emoji: "📻",
+    category: "Karışık",
+  },
+  {
+    name: "ALEM FM",
+    value: "https://alemfm.radyotvonline.net/alemfmaac",
+    description: "Türkçe Pop",
+    emoji: "🎧",
+    category: "Pop",
+  },
+  {
+    name: "Virgin Radio",
+    value:
+      "https://playerservices.streamtheworld.com/api/livestream-redirect/VIRGIN_RADIO_SC",
+    description: "Türkçe rap, hiphop, yerli pop hit şarkılar",
+    emoji: "🎸",
+    category: "Hit Şarkılar",
+  },
+  {
     name: "Arabesk FM",
     value: "https://yayin.arabeskfm.biz:8042//;type=mp3",
     description: "Arabesk Müzik",
@@ -81,14 +104,6 @@ const stations = [
     category: "Yabancı",
   },
   {
-    name: "Virgin Radio",
-    value:
-      "https://playerservices.streamtheworld.com/api/livestream-redirect/VIRGIN_RADIO_SC",
-    description: "Yabancı Rock & Pop",
-    emoji: "🎸",
-    category: "Yabancı",
-  },
-  {
     name: "Radyo Viva",
     value: "https://listen.radyotvonline.net/hls/play/adsonline_radyoviva.m3u8",
     description: "Türkçe Pop & Karışık",
@@ -122,4 +137,3 @@ const stations = [
 ];
 
 module.exports = { stations };
-
