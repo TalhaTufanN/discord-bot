@@ -178,11 +178,16 @@ module.exports = {
             const queue = i.client.distube.getQueue(i.guildId);
 
             if (queue) {
-              // Flag this as intentional so retry logic doesn't trigger
-              queue._intentionalStop = true;
               await queue.stop();
-              // Minimal delay to allow DisTube to clean up
-              await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+
+            if (queue) {
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
+
+            const newQueue = i.client.distube.getQueue(i.guildId);
+            if (!newQueue) {
+              await i.client.distube.voices.join(voiceChannel);
             }
 
             await i.client.distube.play(voiceChannel, selectedUrl, {

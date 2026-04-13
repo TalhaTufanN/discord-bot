@@ -42,20 +42,12 @@ exports.handleDistubeEvents = (client) => {
     }
   };
 
-  // When a queue is initialized, monkey-patch stop() and skip() to track intentional stops
+  // When a queue is initialized, monkey-patch stop() to track intentional stops
   distube.on("initQueue", (queue) => {
     const originalStop = queue.stop.bind(queue);
     queue.stop = async () => {
-      console.log(`[Queue] Manual stop triggered for ${queue.guild.id}`);
       queue._intentionalStop = true;
       return originalStop();
-    };
-
-    const originalSkip = queue.skip.bind(queue);
-    queue.skip = async () => {
-      console.log(`[Queue] Manual skip triggered for ${queue.guild.id}`);
-      queue._intentionalStop = true;
-      return originalSkip();
     };
   });
 
@@ -238,7 +230,6 @@ exports.handleDistubeEvents = (client) => {
   distube.on("finish", async (queue) => {
     // Check if this was an intentional stop or skip
     if (queue._intentionalStop) {
-      console.log(`[Queue] Finish event: Intentional stop detected for ${queue.guild.id}. Resetting flag.`);
       queue._intentionalStop = false;
       
       // If 24/7 mode is active, don't say queue finished
