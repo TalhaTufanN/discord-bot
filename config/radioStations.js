@@ -23,7 +23,7 @@ const stations = [
   {
     name: "Best FM",
     value:
-      "https://officialbestfm.radyotvonline.net/bestfmofficial?/;stream.mp3",
+      "https://ssldyg.radyotvonline.com/best/bestfm.stream/chunklist_w1016051142.m3u8",
     description: "Karışık",
     emoji: "📻",
     category: "Karışık",

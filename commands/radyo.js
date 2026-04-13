@@ -177,27 +177,28 @@ module.exports = {
           try {
             const queue = i.client.distube.getQueue(i.guildId);
 
+            // If a queue already exists, just play with skip: true to switch seamlessly
             if (queue) {
-              await queue.stop();
+              await i.client.distube.play(voiceChannel, selectedUrl, {
+                member: i.member,
+                textChannel: i.channel,
+                skip: true,
+                metadata: {
+                  interaction: i,
+                  stationName: selectedStation.name,
+                },
+              });
+            } else {
+              // No queue, first time joining
+              await i.client.distube.play(voiceChannel, selectedUrl, {
+                member: i.member,
+                textChannel: i.channel,
+                metadata: {
+                  interaction: i,
+                  stationName: selectedStation.name,
+                },
+              });
             }
-
-            if (queue) {
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-            }
-
-            const newQueue = i.client.distube.getQueue(i.guildId);
-            if (!newQueue) {
-              await i.client.distube.voices.join(voiceChannel);
-            }
-
-            await i.client.distube.play(voiceChannel, selectedUrl, {
-              member: i.member,
-              textChannel: i.channel,
-              metadata: {
-                interaction: i,
-                stationName: selectedStation.name,
-              },
-            });
 
             // No editReply needed for play success, handled by distubeEvents
           } catch (error) {
