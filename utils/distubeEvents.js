@@ -42,11 +42,34 @@ exports.handleDistubeEvents = (client) => {
     }
   };
 
+  // When a queue is initialized, monkey-patch stop() to track intentional stops
+  distube.on("initQueue", (queue) => {
+    const originalStop = queue.stop.bind(queue);
+    queue.stop = async () => {
+      queue._intentionalStop = true;
+      return originalStop();
+    };
+  });
+
   // When a song starts playing
   distube.on("playSong", (queue, song) => {
     // Check if it's a radio station
     const isRadio =
-      song.metadata && song.metadata.interaction && song.metadata.stationName;
+      song.metadata && song.metadata.stationName;
+    
+    // Store radio info for auto-retry if it's a radio
+    if (isRadio) {
+      queue._lastRadio = {
+        url: song.url,
+        name: song.metadata.stationName,
+        user: song.user,
+        member: song.member,
+        metadata: song.metadata,
+      };
+    } else {
+      delete queue._lastRadio;
+    }
+
     const songName = isRadio ? song.metadata.stationName : song.name;
     const uploader = isRadio ? "Canlı Radyo" : song.uploader.name;
     const duration = isRadio ? "🔴 Canlı Yayın" : song.formattedDuration;
@@ -135,7 +158,6 @@ exports.handleDistubeEvents = (client) => {
     // If it's a radio station, don't show "Added to Queue" message
     if (
       song.metadata &&
-      song.metadata.interaction &&
       song.metadata.stationName
     ) {
       return;
@@ -186,6 +208,13 @@ exports.handleDistubeEvents = (client) => {
   distube.on("error", (error, queue) => {
     console.error("DisTube Error:", error);
     if (queue && queue.textChannel) {
+      // If it's a radio station error, we might want to ignore the "user-facing" error message 
+      // because the retry logic in 'finish' will try to fix it.
+      if (queue._lastRadio) {
+        console.log(`[Radio Error] ${queue.guild.name}: Stream error detected for ${queue._lastRadio.name}. Retry logic will follow.`);
+        return;
+      }
+
       const embed = new EmbedBuilder()
         .setColor("#FF0000")
         .setTitle(`${emojis.error} Hata`)
@@ -198,8 +227,55 @@ exports.handleDistubeEvents = (client) => {
   });
 
   // When the queue ends
-  distube.on("finish", (queue) => {
-    // If 24/7 mode is active, don't say queue finished, just stay connected
+  distube.on("finish", async (queue) => {
+    // Check if this was an intentional stop or skip
+    if (queue._intentionalStop) {
+      queue._intentionalStop = false;
+      
+      // If 24/7 mode is active, don't say queue finished
+      if (client.radioMode) return;
+
+      const embed = new EmbedBuilder()
+        .setColor("#FFFF00")
+        .setTitle(`${emojis.info} Kuyruk Bitti`)
+        .setDescription("Kuyrukta başka şarkı kalmadı.");
+
+      updateMusicMessage(queue, embed);
+      return;
+    }
+
+    // If it was a radio station and ended unexpectedly (e.g. stream dropped)
+    if (queue._lastRadio) {
+      console.log(`[Radio Retry] ${queue.guild.name}: Connection lost to ${queue._lastRadio.name}. Retrying in 3 seconds...`);
+      
+      try {
+        // Wait a few seconds to avoid immediate loops if the stream is totally down
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Re-check if we still have a reason to play (bot might have been kicked or channel changed)
+        if (!queue.voiceChannel) return;
+
+        await distube.play(queue.voiceChannel, queue._lastRadio.url, {
+          member: queue._lastRadio.member,
+          textChannel: queue.textChannel,
+          metadata: queue._lastRadio.metadata,
+        });
+
+        const retryEmbed = new EmbedBuilder()
+          .setColor("#00FF00")
+          .setDescription(`${emojis.success} Bağlantı kesildi, **${queue._lastRadio.name}** istasyonuna tekrar bağlanılıyor...`);
+        
+        queue.textChannel.send({ embeds: [retryEmbed] }).then(msg => {
+          setTimeout(() => msg.delete().catch(() => {}), 5000);
+        });
+
+        return;
+      } catch (error) {
+        console.error(`[Radio Retry Failed] ${queue.guild.name}:`, error);
+      }
+    }
+
+    // Default behavior for normal songs or failed retries
     if (client.radioMode) {
       return;
     }
