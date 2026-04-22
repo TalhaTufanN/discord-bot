@@ -38,10 +38,10 @@ const ffmpegPath = require("ffmpeg-static");
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
   plugins: [
+    new YtDlpPlugin({ update: true }), // Move YtDlpPlugin to first to handle format extraction
     new YouTubePlugin(),
     new SpotifyPlugin({}),
     new SoundCloudPlugin(),
-    new YtDlpPlugin({ update: false }),
   ],
 });
 
