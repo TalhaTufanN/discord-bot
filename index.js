@@ -37,6 +37,27 @@ const ffmpegPath = require("ffmpeg-static");
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
   plugins: [new SpotifyPlugin({}), new YtDlpPlugin({ update: false })],
+  // FFmpeg hızlandırma argümanları
+  ffmpegDefaultArgs: {
+    before: [
+      "-reconnect",
+      "1",
+      "-reconnect_streamed",
+      "1",
+      "-reconnect_delay_max",
+      "5",
+    ],
+    after: [
+      "-analyzeduration",
+      "0",
+      "-probesize",
+      "32",
+      "-fflags",
+      "nobuffer",
+      "-flags",
+      "low_delay",
+    ],
+  },
 });
 
 // Load commands
