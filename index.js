@@ -14,9 +14,8 @@ const {
 const fs = require("fs");
 const path = require("path");
 const { DisTube } = require("distube");
-const { YouTubePlugin } = require("@distube/youtube");
 const { SpotifyPlugin } = require("@distube/spotify");
-const { SoundCloudPlugin } = require("@distube/soundcloud");
+// const { SoundCloudPlugin } = require("@distube/soundcloud");
 const { YtDlpPlugin } = require("@distube/yt-dlp");
 const { emojis } = require("./config/emojis");
 
@@ -37,12 +36,7 @@ client.commands = new Collection();
 const ffmpegPath = require("ffmpeg-static");
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
-  plugins: [
-    new YtDlpPlugin({ update: true }), // yt-dlp primary engine
-    // new YouTubePlugin(), // Temporarily disabled to avoid conflict
-    new SpotifyPlugin({}),
-    new SoundCloudPlugin(),
-  ],
+  plugins: [new SpotifyPlugin({}), new YtDlpPlugin({ update: false })],
 });
 
 // Load commands

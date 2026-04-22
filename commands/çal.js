@@ -1,6 +1,10 @@
 const { SlashCommandBuilder } = require("@discordjs/builders");
 const { infoEmbed, errorEmbed } = require("../utils/embeds");
 const { emojis } = require("../config/emojis");
+const { YouTubePlugin } = require("@distube/youtube");
+
+// Create YouTube plugin instance for search
+const youtubePlugin = new YouTubePlugin();
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -46,34 +50,118 @@ module.exports = {
     await interaction.deferReply();
 
     try {
+      // Set textChannel for DisTube events
+      const queue = interaction.client.distube.getQueue(interaction.guildId);
+
+      if (!queue) {
+        interaction.client.distube.voices.join(voiceChannel);
+      }
+
+      // Check if query is a URL
+      const isUrl = query.startsWith("http://") || query.startsWith("https://");
+      const isSpotify =
+        isUrl &&
+        (query.includes("spotify.com") || query.includes("open.spotify"));
       let playQuery = query;
 
       // Clean YouTube Mix/Radio URLs (remove list & start_radio)
-      // This ensures that if a user pastes a URL with a Mix attached, we play the specific song
       if (
-        (query.includes("youtube.com") || query.includes("youtu.be")) &&
-        (query.includes("list=") || query.includes("start_radio="))
+        isUrl &&
+        (query.includes("youtube.com") || query.includes("youtu.be"))
       ) {
         try {
           const urlObj = new URL(query);
           const videoId = urlObj.searchParams.get("v");
-          
-          // If it's a specific video within a playlist/mix, just play that video
           if (videoId) {
+            // Remove unnecessary parameters that cause issues
             urlObj.searchParams.delete("list");
             urlObj.searchParams.delete("start_radio");
             urlObj.searchParams.delete("index");
             playQuery = urlObj.toString();
-            console.log(`[YouTube] Cleaned URL for better playback: ${playQuery}`);
+            console.log(`[YouTube] Cleaned URL: ${query} -> ${playQuery}`);
           }
         } catch (e) {
-          // If URL parsing fails, just use original query
+          console.error("URL cleaning error:", e);
         }
       }
 
-      // Special case: If it's a search term (not a URL), we can optionally tell DisTube
-      // to prioritize videos over playlists if that's what the user prefers.
-      // But usually, DisTube's default is good.
+      let searchTerm = null;
+
+      // If it's a Spotify link, get the song name and search YouTube
+      if (isSpotify) {
+        try {
+          // Use Spotify oEmbed API to get track info (no API key needed)
+          const oEmbedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(query)}`;
+          const response = await fetch(oEmbedUrl);
+
+          if (!response.ok) {
+            return await interaction.editReply({
+              embeds: [
+                errorEmbed(`${emojis.error} Spotify linki çözümlenemedi.`),
+              ],
+            });
+          }
+
+          const data = await response.json();
+          // title format: "şarkı adı - sanatçı"
+          searchTerm = data.title || null;
+
+          if (!searchTerm) {
+            return await interaction.editReply({
+              embeds: [
+                errorEmbed(
+                  `${emojis.error} Spotify'dan şarkı bilgisi alınamadı.`,
+                ),
+              ],
+            });
+          }
+
+          console.log(
+            `[Spotify] "${query}" -> YouTube araması: "${searchTerm}"`,
+          );
+        } catch (spotifyError) {
+          console.error("Spotify oEmbed error:", spotifyError);
+          return await interaction.editReply({
+            embeds: [
+              errorEmbed(
+                `${emojis.error} Spotify linki işlenirken hata oluştu: ${spotifyError.message}`,
+              ),
+            ],
+          });
+        }
+      }
+
+      // If not a URL or if it's a Spotify link, search YouTube
+      if (!isUrl || isSpotify) {
+        const youtubeSearchQuery = searchTerm || query;
+        try {
+          const searchResults = await youtubePlugin.search(youtubeSearchQuery, {
+            limit: 1,
+            type: "video",
+          });
+
+          if (searchResults && searchResults.length > 0) {
+            playQuery = searchResults[0].url;
+          } else {
+            return await interaction.editReply({
+              embeds: [
+                errorEmbed(
+                  `${emojis.error} YouTube'da "${youtubeSearchQuery}" için sonuç bulunamadı.`,
+                ),
+              ],
+            });
+          }
+        } catch (searchError) {
+          console.error("YouTube search error:", searchError);
+          return await interaction.editReply({
+            embeds: [
+              errorEmbed(
+                `${emojis.error} Arama sırasında hata oluştu: ${searchError.message}`,
+              ),
+            ],
+          });
+        }
+      }
 
       await interaction.client.distube.play(voiceChannel, playQuery, {
         member: interaction.member,
@@ -81,22 +169,16 @@ module.exports = {
         metadata: { interaction },
       });
 
-      // Update the deferred reply
+      // Edit the deferred reply
       await interaction.editReply({
         embeds: [infoEmbed(`${emojis.search} Aranıyor: \`${query}\``)],
       });
     } catch (error) {
-      console.error("[Play Command Error]", error);
-      
-      let errorMessage = error.message;
-      if (errorMessage.includes("canonicalBaseUrl")) {
-        errorMessage = "YouTube bağlantı hatası. Botun bağımlılıkları güncellendi, lütfen botu yeniden başlatın.";
-      }
-
+      console.error(error);
       await interaction.editReply({
         embeds: [
           errorEmbed(
-            `${emojis.error} Müzik çalarken hata oluştu: ${errorMessage}`,
+            `${emojis.error} Müzik çalarken hata oluştu: ${error.message}`,
           ),
         ],
       });
