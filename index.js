@@ -38,25 +38,20 @@ client.distube = new DisTube(client, {
   emitNewSongOnly: true,
   plugins: [new SpotifyPlugin({}), new YtDlpPlugin({ update: false })],
   // FFmpeg hızlandırma argümanları
-  ffmpegDefaultArgs: {
-    before: [
-      "-reconnect",
-      "1",
-      "-reconnect_streamed",
-      "1",
-      "-reconnect_delay_max",
-      "5",
-    ],
-    after: [
-      "-analyzeduration",
-      "0",
-      "-probesize",
-      "32",
-      "-fflags",
-      "nobuffer",
-      "-flags",
-      "low_delay",
-    ],
+  // Daha güvenli ve uyumlu hızlandırma ayarları
+  ffmpeg: {
+    args: {
+      global: [
+        "-reconnect",
+        "1",
+        "-reconnect_streamed",
+        "1",
+        "-reconnect_delay_max",
+        "5",
+      ],
+      input: ["-analyzeduration", "100000", "-probesize", "100000"], // Tam 0 yerine çok küçük bir değer (0.1sn)
+      output: ["-fflags", "nobuffer", "-flags", "low_delay"],
+    },
   },
 });
 
