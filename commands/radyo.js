@@ -10,6 +10,7 @@ const {
 const { errorEmbed, infoEmbed, successEmbed } = require("../utils/embeds");
 const { emojis } = require("../config/emojis");
 const { getAllStationsForGuild } = require("../utils/radioStorage");
+const PerformanceTimer = require("../utils/timer");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -17,6 +18,7 @@ module.exports = {
     .setDescription("Popüler Türk radyo istasyonlarını listeler ve oynatır"),
 
   async execute(interaction) {
+    const timer = new PerformanceTimer();
     const voiceChannel = interaction.member.voice.channel;
     const guildId = interaction.guildId;
 
@@ -44,6 +46,8 @@ module.exports = {
         ephemeral: true,
       });
     }
+    
+    timer.mark("İzin Kontrolleri");
 
     // Helper to generate components
     const generateComponents = (is247 = false) => {
@@ -99,6 +103,8 @@ module.exports = {
       embeds: [infoEmbed("Dinlemek istediğiniz radyo istasyonunu seçin.")],
       components: generateComponents(is247Active),
     });
+    
+    timer.mark("Menü Oluşturuldu");
 
     // Bu sunucu için son radyo panel mesajını kaydet
     interaction.client.radioPanels.set(guildId, response);
@@ -108,6 +114,7 @@ module.exports = {
     }); // 5 minutes
 
     collector.on("collect", async (i) => {
+      const selectionTimer = new PerformanceTimer();
       try {
         if (i.user.id !== interaction.user.id) {
           return i.reply({
@@ -118,6 +125,7 @@ module.exports = {
 
         // Defer update immediately to prevent "Unknown interaction" errors
         await i.deferUpdate();
+        selectionTimer.mark("Seçim Algılandı (Defer)");
 
         // Handle 24/7 Toggle
         if (i.customId === "radio_247") {
@@ -173,21 +181,26 @@ module.exports = {
             });
           }
           const selectedUrl = selectedStation.value;
+          
+          selectionTimer.mark("Veri Hazırlığı");
 
           try {
             const queue = i.client.distube.getQueue(i.guildId);
 
             if (queue) {
               await queue.stop();
+              selectionTimer.mark("Eski Kuyruk Temizlendi");
             }
 
             if (queue) {
               await new Promise((resolve) => setTimeout(resolve, 1000));
+              selectionTimer.mark("bekleme (1sn)");
             }
 
             const newQueue = i.client.distube.getQueue(i.guildId);
             if (!newQueue) {
               await i.client.distube.voices.join(voiceChannel);
+              selectionTimer.mark("Kanala Katılım");
             }
 
             await i.client.distube.play(voiceChannel, selectedUrl, {
@@ -196,10 +209,18 @@ module.exports = {
               metadata: {
                 interaction: i,
                 stationName: selectedStation.name,
+                timer: selectionTimer // Pass timer to metadata
               },
             });
+            
+            selectionTimer.mark("DisTube Play");
 
-            // No editReply needed for play success, handled by distubeEvents
+            // Raporu ekranda göstermek için bir follow-up atabiliriz
+            await i.followUp({
+              content: selectionTimer.getReport(),
+              ephemeral: true
+            });
+
           } catch (error) {
             console.error(error);
             await i.followUp({
@@ -234,3 +255,4 @@ module.exports = {
     });
   },
 };
+
