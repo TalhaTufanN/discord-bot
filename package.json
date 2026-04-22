@@ -27,6 +27,7 @@
     "@distube/youtube": "^1.0.4",
     "@distube/yt-dlp": "^2.0.1",
     "@distube/ytdl-core": "^4.16.12",
+    "@distube/ytsr": "^2.0.4",
     "@noble/ciphers": "^2.1.1",
     "@snazzah/davey": "^0.1.10",
     "discord.js": "^14.19.3",
