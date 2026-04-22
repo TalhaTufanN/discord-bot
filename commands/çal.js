@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require("@discordjs/builders");
 const { infoEmbed, errorEmbed } = require("../utils/embeds");
 const { emojis } = require("../config/emojis");
 const { YouTubePlugin } = require("@distube/youtube");
+const PerformanceTimer = require("../utils/timer");
 
 // Create YouTube plugin instance for search
 const youtubePlugin = new YouTubePlugin();
@@ -18,6 +19,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    const timer = new PerformanceTimer();
     const query = interaction.options.getString("query");
     const voiceChannel = interaction.member.voice.channel;
 
@@ -45,9 +47,12 @@ module.exports = {
         ephemeral: true,
       });
     }
+    
+    timer.mark("İzin Kontrolleri");
 
     // Defer reply since playing music might take some time
     await interaction.deferReply();
+    timer.mark("Yanıt Erteleme (Defer)");
 
     try {
       // Set textChannel for DisTube events
@@ -84,6 +89,8 @@ module.exports = {
           console.error("URL cleaning error:", e);
         }
       }
+      
+      timer.mark("URL Temizleme");
 
       let searchTerm = null;
 
@@ -129,6 +136,7 @@ module.exports = {
             ],
           });
         }
+        timer.mark("Spotify Çözümleme");
       }
 
       // If not a URL or if it's a Spotify link, search YouTube
@@ -161,6 +169,7 @@ module.exports = {
             ],
           });
         }
+        timer.mark("YouTube Arama");
       }
 
       await interaction.client.distube.play(voiceChannel, playQuery, {
@@ -168,20 +177,25 @@ module.exports = {
         textChannel: interaction.channel,
         metadata: { interaction },
       });
+      
+      timer.mark("DisTube Play");
 
       // Edit the deferred reply
+      const embed = infoEmbed(`${emojis.search} Aranıyor: \`${query}\``);
+      embed.setDescription(embed.data.description + timer.getReport());
+      
       await interaction.editReply({
-        embeds: [infoEmbed(`${emojis.search} Aranıyor: \`${query}\``)],
+        embeds: [embed],
       });
     } catch (error) {
       console.error(error);
+      const embed = errorEmbed(`${emojis.error} Müzik çalarken hata oluştu: ${error.message}`);
+      embed.setDescription(embed.data.description + timer.getReport());
+      
       await interaction.editReply({
-        embeds: [
-          errorEmbed(
-            `${emojis.error} Müzik çalarken hata oluştu: ${error.message}`,
-          ),
-        ],
+        embeds: [embed],
       });
     }
   },
 };
+
