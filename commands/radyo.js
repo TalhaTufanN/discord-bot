@@ -46,7 +46,7 @@ module.exports = {
         ephemeral: true,
       });
     }
-    
+
     timer.mark("İzin Kontrolleri");
 
     // Helper to generate components
@@ -103,7 +103,7 @@ module.exports = {
       embeds: [infoEmbed("Dinlemek istediğiniz radyo istasyonunu seçin.")],
       components: generateComponents(is247Active),
     });
-    
+
     timer.mark("Menü Oluşturuldu");
 
     // Bu sunucu için son radyo panel mesajını kaydet
@@ -181,7 +181,7 @@ module.exports = {
             });
           }
           const selectedUrl = selectedStation.value;
-          
+
           selectionTimer.mark("Veri Hazırlığı");
 
           try {
@@ -193,8 +193,8 @@ module.exports = {
             }
 
             if (queue) {
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-              selectionTimer.mark("bekleme (1sn)");
+              await new Promise((resolve) => setTimeout(resolve, 200));
+              selectionTimer.mark("bekleme (0.2sn)");
             }
 
             const newQueue = i.client.distube.getQueue(i.guildId);
@@ -209,18 +209,17 @@ module.exports = {
               metadata: {
                 interaction: i,
                 stationName: selectedStation.name,
-                timer: selectionTimer // Pass timer to metadata
+                timer: selectionTimer, // Pass timer to metadata
               },
             });
-            
+
             selectionTimer.mark("DisTube Play");
 
             // Raporu ekranda göstermek için bir follow-up atabiliriz
             await i.followUp({
               content: selectionTimer.getReport(),
-              ephemeral: true
+              ephemeral: true,
             });
-
           } catch (error) {
             console.error(error);
             await i.followUp({
@@ -255,4 +254,3 @@ module.exports = {
     });
   },
 };
-
