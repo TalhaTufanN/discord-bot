@@ -14,13 +14,6 @@ const stations = [
     category: "Halk Müziği",
   },
   {
-    name: "TRT Türkü Icecast",
-    value: "https://shoutcast.trt.net.tr/trtturku",
-    description: "Türk Halk Müziği",
-    emoji: "🎼",
-    category: "Halk Müziği",
-  },
-  {
     name: "Kral FM",
     value: "http://46.20.3.204/",
     description: "Arabesk & Fantezi",
@@ -31,13 +24,6 @@ const stations = [
     name: "Best FM",
     value:
       "https://ssldyg.radyotvonline.com/best/bestfm.stream/chunklist_w1016051142.m3u8",
-    description: "Karışık",
-    emoji: "📻",
-    category: "Karışık",
-  },
-  {
-    name: "Best FM Icecast",
-    value: "https://ssldyg.radyotvonline.com/best/bestfm.stream/icecast.audio",
     description: "Karışık",
     emoji: "📻",
     category: "Karışık",
@@ -120,13 +106,6 @@ const stations = [
   {
     name: "Radyo Viva",
     value: "https://listen.radyotvonline.net/hls/play/adsonline_radyoviva.m3u8",
-    description: "Türkçe Pop & Karışık",
-    emoji: "🎧",
-    category: "Pop",
-  },
-  {
-    name: "Radyo Viva Icecast",
-    value: "https://ssldyg.radyotvonline.com/viva/viva.stream/icecast.audio",
     description: "Türkçe Pop & Karışık",
     emoji: "🎧",
     category: "Pop",
