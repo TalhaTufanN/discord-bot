@@ -64,6 +64,37 @@ async function getKarnavalMetadata(stationId, defaultName) {
 }
 
 /**
+ * Fetcher for Radyo 1959
+ */
+async function getRadyo1959Metadata() {
+  try {
+    const url = `https://radyo1.radyo-dinle.tc/cp/get_info.php?p=8108&_=${Date.now()}`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const data = await response.json();
+    
+    if (data && data.title) {
+        let title = data.title;
+        // Split "Artist - Song"
+        let parts = title.split(" - ");
+        let artist = parts[0] || "Radyo 1959";
+        let song = parts[1] || "Canlı Yayın";
+        
+        // Add DJ info if available
+        if (data.djusername && data.djusername !== "No DJ") {
+            artist = `🎙️ ${data.djusername} | ${artist}`;
+        }
+        
+        return { artist, song };
+    }
+    return null;
+  } catch (error) {
+    console.error("Radyo 1959 Metadata Error:", error);
+    return null;
+  }
+}
+
+/**
  * Generic function to get metadata based on station name
  */
 async function getStationMetadata(stationName) {
@@ -84,6 +115,8 @@ async function getStationMetadata(stationName) {
       return await getKarnavalMetadata(22, "JoyTürk Rock");
     case "Borusan Klasik":
       return await getKarnavalMetadata(11, "Borusan Klasik");
+    case "Radyo 1959":
+      return await getRadyo1959Metadata();
     // Add other stations here as we find their APIs
     default:
       return null;
