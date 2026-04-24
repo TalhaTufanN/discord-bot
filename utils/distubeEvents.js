@@ -5,6 +5,10 @@ const {
   ButtonStyle,
 } = require("discord.js");
 const { emojis } = require("../config/emojis");
+const { getStationMetadata } = require("./radioMetadata");
+
+// Map to keep track of active radio metadata intervals per guild
+const radioUpdateIntervals = new Map();
 
 /**
  * Handles all DisTube events
@@ -12,6 +16,14 @@ const { emojis } = require("../config/emojis");
  */
 exports.handleDistubeEvents = (client) => {
   const distube = client.distube;
+
+  // Helper function to clear radio interval
+  const clearRadioInterval = (guildId) => {
+    if (radioUpdateIntervals.has(guildId)) {
+      clearInterval(radioUpdateIntervals.get(guildId));
+      radioUpdateIntervals.delete(guildId);
+    }
+  };
 
   // Initialize music messages map
   client.musicMessages = client.musicMessages || new Map();
@@ -53,6 +65,9 @@ exports.handleDistubeEvents = (client) => {
 
   // When a song starts playing
   distube.on("playSong", async (queue, song) => {
+    // Clear any existing interval for this guild first
+    clearRadioInterval(queue.id);
+
     // Check if it's a radio station
     const isRadio =
       song.metadata && song.metadata.stationName;
@@ -70,11 +85,15 @@ exports.handleDistubeEvents = (client) => {
       delete queue._lastRadio;
     }
 
-    const { getStationMetadata } = require("./radioMetadata");
+    let lastArtist = "";
+    let lastSong = "";
     let currentSongInfo = "";
+
     if (isRadio) {
       const meta = await getStationMetadata(song.metadata.stationName);
       if (meta && meta.song) {
+        lastArtist = meta.artist;
+        lastSong = meta.song;
         currentSongInfo = `\n\n🎵 **Şu An Çalıyor:**\n> ${meta.artist} - ${meta.song}`;
       }
     }
@@ -83,28 +102,32 @@ exports.handleDistubeEvents = (client) => {
     const uploader = isRadio ? "Canlı Radyo" : song.uploader.name;
     const duration = isRadio ? "🔴 Canlı Yayın" : song.formattedDuration;
 
-    const embed = new EmbedBuilder()
-      .setColor("#2B2D31") // Discord dark theme background
-      .setAuthor({
-        name: "Şimdi Çalıyor",
-      })
-      .setDescription(`**${songName}**\n${uploader}${currentSongInfo}`)
-      .addFields(
-        { name: "Süre", value: `\`${duration}\``, inline: true },
-        { name: "İsteyen", value: `${song.user}`, inline: true },
-        { name: "Ses", value: `\`%${queue.volume}\``, inline: true },
-        {
-          name: "Filtre",
-          value: `\`${queue.filters.names.join(", ") || "Kapalı"}\``,
-          inline: true,
-        },
-      )
-      .setThumbnail(song.thumbnail)
-      .setFooter({
-        text: "RAADIO TR • Radyo/Müzik",
-        iconURL: client.user.displayAvatarURL(),
-      })
-      .setTimestamp();
+    const createEmbed = (extraInfo = currentSongInfo) => {
+      return new EmbedBuilder()
+        .setColor("#2B2D31") // Discord dark theme background
+        .setAuthor({
+          name: "Şimdi Çalıyor",
+        })
+        .setDescription(`**${songName}**\n${uploader}${extraInfo}`)
+        .addFields(
+          { name: "Süre", value: `\`${duration}\``, inline: true },
+          { name: "İsteyen", value: `${song.user}`, inline: true },
+          { name: "Ses", value: `\`%${queue.volume}\``, inline: true },
+          {
+            name: "Filtre",
+            value: `\`${queue.filters.names.join(", ") || "Kapalı"}\``,
+            inline: true,
+          },
+        )
+        .setThumbnail(song.thumbnail)
+        .setFooter({
+          text: "RAADIO TR • Radyo/Müzik",
+          iconURL: client.user.displayAvatarURL(),
+        })
+        .setTimestamp();
+    };
+
+    const embed = createEmbed();
 
     // Row 1: Playback Controls
     const row1 = new ActionRowBuilder().addComponents(
@@ -159,7 +182,29 @@ exports.handleDistubeEvents = (client) => {
         .setStyle(ButtonStyle.Secondary),
     );
 
-    updateMusicMessage(queue, embed, [row1, row2]);
+    await updateMusicMessage(queue, embed, [row1, row2]);
+
+    // Start auto-updater for radio metadata (5s interval)
+    if (isRadio) {
+      const interval = setInterval(async () => {
+        const newMeta = await getStationMetadata(song.metadata.stationName);
+        if (newMeta && (newMeta.artist !== lastArtist || newMeta.song !== lastSong)) {
+          lastArtist = newMeta.artist;
+          lastSong = newMeta.song;
+          const updatedInfo = `\n\n🎵 **Şu An Çalıyor:**\n> ${newMeta.artist} - ${newMeta.song}`;
+          
+          // Get current message and update it
+          const currentMsg = client.musicMessages.get(queue.id);
+          if (currentMsg) {
+            await currentMsg.edit({ embeds: [createEmbed(updatedInfo)] }).catch(() => {
+                clearRadioInterval(queue.id);
+            });
+          }
+        }
+      }, 5000); // 5 seconds responsiveness
+      
+      radioUpdateIntervals.set(queue.id, interval);
+    }
   });
 
   // When a song is added to the queue
@@ -237,6 +282,7 @@ exports.handleDistubeEvents = (client) => {
 
   // When the queue ends
   distube.on("finish", async (queue) => {
+    clearRadioInterval(queue.id);
     // Check if this was an intentional stop or skip
     if (queue._intentionalStop) {
       queue._intentionalStop = false;
@@ -299,6 +345,7 @@ exports.handleDistubeEvents = (client) => {
 
   // When the bot disconnects from a voice channel
   distube.on("disconnect", (queue) => {
+    clearRadioInterval(queue.id);
     const embed = new EmbedBuilder()
       .setColor("#FF9900")
       .setTitle(`${emojis.info} Bağlantı Kesildi`)
