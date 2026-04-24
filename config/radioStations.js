@@ -15,15 +15,14 @@ const stations = [
   },
   {
     name: "Kral FM",
-    value: "http://46.20.3.204/",
+    value: "https://dygedge2.radyotvonline.net/kralfm/playlist.m3u8",
     description: "Arabesk & Fantezi",
     emoji: "🥀",
     category: "Arabesk",
   },
   {
     name: "Best FM",
-    value:
-      "https://ssldyg.radyotvonline.com/best/bestfm.stream/chunklist_w1016051142.m3u8",
+    value: "https://ssldyg.radyotvonline.com/best/bestfm.stream/playlist.m3u8",
     description: "Karışık",
     emoji: "📻",
     category: "Karışık",
@@ -90,7 +89,7 @@ const stations = [
   },
   {
     name: "Kral Pop",
-    value: "http://46.20.3.201:80/",
+    value: "https://dygedge2.radyotvonline.net/kralpop/playlist.m3u8",
     description: "Türkçe Pop",
     emoji: "🎧",
     category: "Pop",
