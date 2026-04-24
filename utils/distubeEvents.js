@@ -52,7 +52,7 @@ exports.handleDistubeEvents = (client) => {
   });
 
   // When a song starts playing
-  distube.on("playSong", (queue, song) => {
+  distube.on("playSong", async (queue, song) => {
     // Check if it's a radio station
     const isRadio =
       song.metadata && song.metadata.stationName;
@@ -70,6 +70,15 @@ exports.handleDistubeEvents = (client) => {
       delete queue._lastRadio;
     }
 
+    const { getStationMetadata } = require("./radioMetadata");
+    let currentSongInfo = "";
+    if (isRadio) {
+      const meta = await getStationMetadata(song.metadata.stationName);
+      if (meta && meta.song) {
+        currentSongInfo = `\n\n🎵 **Şu An Çalıyor:**\n> ${meta.artist} - ${meta.song}`;
+      }
+    }
+
     const songName = isRadio ? song.metadata.stationName : song.name;
     const uploader = isRadio ? "Canlı Radyo" : song.uploader.name;
     const duration = isRadio ? "🔴 Canlı Yayın" : song.formattedDuration;
@@ -79,7 +88,7 @@ exports.handleDistubeEvents = (client) => {
       .setAuthor({
         name: "Şimdi Çalıyor",
       })
-      .setDescription(`**${songName}**\n${uploader}`)
+      .setDescription(`**${songName}**\n${uploader}${currentSongInfo}`)
       .addFields(
         { name: "Süre", value: `\`${duration}\``, inline: true },
         { name: "İsteyen", value: `${song.user}`, inline: true },

@@ -184,6 +184,13 @@ module.exports = {
 
           selectionTimer.mark("Veri Hazırlığı");
 
+          // 1. AŞAMA: MENÜYÜ KALDIR VE BİLGİ VER
+          await i.editReply({
+            embeds: [infoEmbed(`${selectedStation.emoji || '📡'} **${selectedStation.name}** istasyonuna bağlanılıyor...\n` +
+            `*Yayın hazırlanıyor, lütfen bekleyin. Bu işlem yayının türüne göre 5-10 saniye sürebilir.*`)],
+            components: [] 
+          });
+
           try {
             const queue = i.client.distube.getQueue(i.guildId);
 
@@ -203,6 +210,7 @@ module.exports = {
               selectionTimer.mark("Kanala Katılım");
             }
 
+            // 2. AŞAMA: YAYINI BAŞLAT
             await i.client.distube.play(voiceChannel, selectedUrl, {
               member: i.member,
               textChannel: i.channel,
@@ -215,16 +223,19 @@ module.exports = {
 
             selectionTimer.mark("DisTube Play");
 
-            // Raporu ekranda göstermek için bir follow-up atabiliriz
-            await i.followUp({
-              content: selectionTimer.getReport(),
-              ephemeral: true,
+            // 3. AŞAMA: BAŞARILIYSA MENÜYÜ GERİ GETİR
+            await i.editReply({
+              embeds: [infoEmbed(`${selectedStation.emoji || '📡'} **${selectedStation.name}** başarıyla başlatıldı!\n` +
+              `Dinlemek istediğiniz başka bir istasyon var mı?${selectionTimer.getReport()}`)],
+              components: generateComponents(is247Active) 
             });
+
           } catch (error) {
             console.error(error);
-            await i.followUp({
-              embeds: [errorEmbed("Radyo oynatılırken bir hata oluştu.")],
-              ephemeral: true,
+            // 4. AŞAMA: HATA VARSA DA MENÜYÜ GERİ GETİR
+            await i.editReply({
+              embeds: [errorEmbed(`**${selectedStation.name}** bağlantı hatası: ${error.message}`)],
+              components: generateComponents(is247Active)
             });
           }
         }
