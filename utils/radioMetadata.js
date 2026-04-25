@@ -6,17 +6,18 @@ async function getKralMetadata(radioId, defaultName) {
     const url = `https://www.kralmuzik.com.tr/rds/mobile?radio_id=${radioId}&_=${Date.now()}`;
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
     });
 
     if (!response.ok) return null;
     const data = await response.json();
-    
+
     if (data && data.CurrentSong) {
-        const artist = data.CurrentSong.ArtistName || defaultName;
-        const song = data.CurrentSong.SongName || "Canlı Yayın";
-        return { artist, song };
+      const artist = data.CurrentSong.ArtistName || defaultName;
+      const song = data.CurrentSong.SongName || "Canlı Yayın";
+      return { artist, song };
     }
     return null;
   } catch (error) {
@@ -30,31 +31,31 @@ async function getKralMetadata(radioId, defaultName) {
  */
 async function getKarnavalMetadata(stationId, defaultName) {
   try {
-    const url = 'https://karnaval.com/functions/v6/api.functions.php';
+    const url = "https://karnaval.com/functions/v6/api.functions.php";
     const params = new URLSearchParams();
-    params.append('command', 'get_current_song');
-    params.append('station_id', 'all');
-    params.append('lastVersion', '0');
-    params.append('custom_k_parameter', 'karnaval_web_v6');
+    params.append("command", "get_current_song");
+    params.append("station_id", "all");
+    params.append("lastVersion", "0");
+    params.append("custom_k_parameter", "karnaval_web_v6");
 
     const response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: params
+      body: params,
     });
 
     if (!response.ok) return null;
     const json = await response.json();
-    
+
     // Data structure: json.data["station_X"]
     const stationData = json.data && json.data[`station_${stationId}`];
-    
+
     if (stationData) {
-        const artist = stationData.artist || defaultName;
-        const song = stationData.title || "Canlı Yayın";
-        return { artist, song };
+      const artist = stationData.artist || defaultName;
+      const song = stationData.title || "Canlı Yayın";
+      return { artist, song };
     }
     return null;
   } catch (error) {
@@ -72,20 +73,20 @@ async function getRadyo1959Metadata() {
     const response = await fetch(url);
     if (!response.ok) return null;
     const data = await response.json();
-    
+
     if (data && data.title) {
-        let title = data.title;
-        // Split "Artist - Song"
-        let parts = title.split(" - ");
-        let artist = parts[0] || "Radyo 1959";
-        let song = parts[1] || "Canlı Yayın";
-        
-        // Add DJ info if available
-        if (data.djusername && data.djusername !== "No DJ") {
-            artist = `🎙️ ${data.djusername} | ${artist}`;
-        }
-        
-        return { artist, song };
+      let title = data.title;
+      // Split "Artist - Song"
+      let parts = title.split(" - ");
+      let artist = parts[0] || "Radyo 1959";
+      let song = parts[1] || "Canlı Yayın";
+
+      // Add DJ info if available
+      if (data.djusername && data.djusername !== "No DJ") {
+        artist = `🎙️ ${data.djusername} | ${artist}`;
+      }
+
+      return { artist, song };
     }
     return null;
   } catch (error) {
@@ -111,8 +112,8 @@ async function getStationMetadata(stationName) {
       return await getKarnavalMetadata(4, "JoyTürk");
     case "Virgin Radio":
       return await getKarnavalMetadata(15, "Virgin Radio");
-    case "JoyTürk Rock":
-      return await getKarnavalMetadata(22, "JoyTürk Rock");
+    case "JoyTürk ROCK":
+      return await getKarnavalMetadata(22, "JoyTürk ROCK");
     case "Borusan Klasik":
       return await getKarnavalMetadata(11, "Borusan Klasik");
     case "Radyo 1959":
@@ -124,6 +125,5 @@ async function getStationMetadata(stationName) {
 }
 
 module.exports = {
-  getStationMetadata
+  getStationMetadata,
 };
-
