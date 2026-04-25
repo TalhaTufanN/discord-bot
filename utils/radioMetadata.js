@@ -96,6 +96,29 @@ async function getRadyo1959Metadata() {
 }
 
 /**
+ * Fetcher for Arabesk FM (Plain text API)
+ */
+async function getArabeskFMMetadata() {
+  try {
+    const url = `https://yayin.arabeskfm.biz:8042/currentsong?sid=1&_=${Date.now()}`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const text = await response.text();
+    
+    if (text && text.includes(" - ")) {
+        const parts = text.split(" - ");
+        return { 
+          artist: parts[0].trim() || "Arabesk FM", 
+          song: parts[1].trim() || "Canlı Yayın" 
+        };
+    }
+    return { artist: "Arabesk FM", song: text || "Canlı Yayın" };
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
  * Generic function to get metadata based on station name
  */
 async function getStationMetadata(stationName) {
@@ -118,6 +141,10 @@ async function getStationMetadata(stationName) {
       return await getKarnavalMetadata(11, "Borusan Klasik");
     case "Radyo 1959":
       return await getRadyo1959Metadata();
+    case "Number1 Türk Rap":
+      return await getNumber1Metadata("https://n10101m.mediatriple.net/turkrap.xspf", "Number1 Türk Rap");
+    case "Arabesk FM":
+      return await getArabeskFMMetadata();
     // Add other stations here as we find their APIs
     default:
       return null;
