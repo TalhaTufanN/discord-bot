@@ -223,10 +223,23 @@ module.exports = {
 
             selectionTimer.mark("DisTube Play");
 
+// Performans raporlarını göster/gizle: 1 = Açık, 0 = Kapalı
+const SHOW_PERFORMANCE = 0;
+
             // 3. AŞAMA: BAŞARILIYSA MENÜYÜ GERİ GETİR
+            let successMsg = `${selectedStation.emoji || '📡'} **${selectedStation.name}** başarıyla başlatıldı!\n` +
+                             `Dinlemek istediğiniz başka bir istasyon var mı?`;
+            
+            if (SHOW_PERFORMANCE) {
+              const reports = selectionTimer.getReport();
+              const total = selectionTimer.getTotal();
+              successMsg += `\n\n**Performans Raporu:**\n` + 
+                            reports.map(r => `• ${r.step}: \`${r.duration}ms\``).join("\n") + 
+                            `\n🏁 **Toplam:** \`${total}ms\``;
+            }
+
             await i.editReply({
-              embeds: [infoEmbed(`${selectedStation.emoji || '📡'} **${selectedStation.name}** başarıyla başlatıldı!\n` +
-              `Dinlemek istediğiniz başka bir istasyon var mı?${selectionTimer.getReport()}`)],
+              embeds: [infoEmbed(successMsg)],
               components: generateComponents(is247Active) 
             });
 
