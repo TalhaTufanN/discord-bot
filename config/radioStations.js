@@ -15,7 +15,7 @@ const stations = [
   },
   {
     name: "Kral FM",
-    value: "https://dygedge2.radyotvonline.net/kralfm/playlist.m3u8",
+    value: "https://kralfm.radyotvonline.net/stream",
     description: "Arabesk & Fantezi",
     emoji: "🥀",
     category: "Arabesk",
@@ -89,7 +89,7 @@ const stations = [
   },
   {
     name: "Kral Pop",
-    value: "https://dygedge2.radyotvonline.net/kralpop/playlist.m3u8",
+    value: "https://kralpop.radyotvonline.net/stream",
     description: "Türkçe Pop",
     emoji: "🎧",
     category: "Pop",
