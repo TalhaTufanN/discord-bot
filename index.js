@@ -37,6 +37,14 @@ const ffmpegPath = require("ffmpeg-static");
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
   plugins: [new SpotifyPlugin({}), new YtDlpPlugin({ update: false })],
+  ytdlOptions: {
+    requestOptions: {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+    },
+  },
 });
 
 // Load commands
