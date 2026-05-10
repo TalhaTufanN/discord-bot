@@ -12,12 +12,3 @@ urls.forEach(url => {
     console.log(`İçerik Tipi: ${res.headers['content-type']}`);
   }).on('error', e => console.error(e));
 });
-  if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-    console.log(`Yönlendirme adresi: ${res.headers.location}`);
-  }
-  
-  process.exit(0);
-}).on('error', (e) => {
-  console.error(e);
-  process.exit(1);
-});

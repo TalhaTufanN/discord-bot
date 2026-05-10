@@ -22,22 +22,21 @@ const stations = [
   },
   {
     name: "Best FM",
-    value: "https://ssldyg.radyotvonline.com/best/bestfm.stream/playlist.m3u8",
+    value: "https://officialbestfm.radyotvonline.net/;",
     description: "Karışık",
     emoji: "📻",
     category: "Karışık",
   },
   {
     name: "ALEM FM",
-    value: "https://alemfm.radyotvonline.net/alemfmaac",
+    value: "https://edge1.radyotvonline.net/shoutcast/play/alemfm",
     description: "Türkçe Pop",
     emoji: "🎧",
     category: "Pop",
   },
   {
     name: "Virgin Radio",
-    value:
-      "https://playerservices.streamtheworld.com/api/livestream-redirect/VIRGIN_RADIO_SC",
+    value: "https://29103.live.streamtheworld.com/VIRGIN_RADIO_SC",
     description: "Türkçe rap, hiphop, yerli pop hit şarkılar",
     emoji: "🎸",
     category: "Hit Şarkılar",
