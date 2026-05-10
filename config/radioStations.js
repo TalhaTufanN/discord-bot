@@ -15,7 +15,7 @@ const stations = [
   },
   {
     name: "Kral FM",
-    value: "https://vcdn.radyotvonline.net/kralfm/playlist.m3u8",
+    value: "https://dygedge2.radyotvonline.net/kralfm/playlist.m3u8",
     description: "Arabesk & Fantezi",
     emoji: "🥀",
     category: "Arabesk",
