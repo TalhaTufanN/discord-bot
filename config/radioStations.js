@@ -29,7 +29,8 @@ const stations = [
   },
   {
     name: "ALEM FM",
-    value: "https://edge1.radyotvonline.net/shoutcast/play/alemfm",
+    value:
+      "http://turkmedya.radyotvonline.com/turkmedya/alemfm.stream/playlist.m3u8",
     description: "Türkçe Pop",
     emoji: "🎧",
     category: "Pop",
