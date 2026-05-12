@@ -1,82 +1,85 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const { errorEmbed, successEmbed } = require("../utils/embeds");
 const { addGuildStation } = require("../utils/radioStorage");
+const { searchStations, getStationById } = require("../utils/stationsSearch");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("radyoekle")
     .setDescription("Radyo listesine yeni bir istasyon ekler")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .addStringOption((option) =>
-      option
-        .setName("isim")
-        .setDescription("Radyo adı")
-        .setRequired(true),
+    // SUBCOMMAND: LISTE (From massive stations.js)
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName("liste")
+        .setDescription("Hazır radyo listesinden seçim yaparak ekleyin")
+        .addStringOption(option =>
+          option.setName("radyo")
+            .setDescription("Eklenecek radyo adı")
+            .setAutocomplete(true)
+            .setRequired(true)
+        )
     )
-    .addStringOption((option) =>
-      option
-        .setName("url")
-        .setDescription("Radyo yayın URL'si (m3u8/mp3 vb.)")
-        .setRequired(true),
-    )
-    .addStringOption((option) =>
-      option
-        .setName("aciklama")
-        .setDescription("Kısa açıklama (örn: Türkçe Pop)")
-        .setRequired(true),
-    )
-    .addStringOption((option) =>
-      option
-        .setName("kategori")
-        .setDescription("Kategori (örn: Pop, Rock, Arabesk, Yabancı vb.)")
-        .setRequired(true),
+    // SUBCOMMAND: MANUEL (Custom URL)
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName("manuel")
+        .setDescription("Kendi radyo isminizi ve URL'inizi girerek ekleyin")
+        .addStringOption(option => option.setName("isim").setDescription("Radyo adı").setRequired(true))
+        .addStringOption(option => option.setName("url").setDescription("Yayın URL'si").setRequired(true))
+        .addStringOption(option => option.setName("aciklama").setDescription("Kısa açıklama").setRequired(true))
+        .addStringOption(option => option.setName("kategori").setDescription("Kategori").setRequired(true))
     ),
 
+  async autocomplete(interaction) {
+    const focusedValue = interaction.options.getFocused();
+    const results = searchStations(focusedValue);
+    await interaction.respond(
+      results.map(s => ({ name: s.name, value: s.id }))
+    );
+  },
+
   async execute(interaction) {
+    const subcommand = interaction.options.getSubcommand();
     const guildId = interaction.guildId;
-    const name = interaction.options.getString("isim", true);
-    const url = interaction.options.getString("url", true);
-    const description = interaction.options.getString("aciklama", true);
-    const category = interaction.options.getString("kategori", true);
+    let newStation = null;
 
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      return interaction.reply({
-        embeds: [errorEmbed("Lütfen geçerli bir URL girin (http/https ile başlamalı).")],
-        ephemeral: true,
-      });
+    if (subcommand === "liste") {
+      const stationId = interaction.options.getString("radyo");
+      const station = getStationById(stationId);
+
+      if (!station) {
+        return interaction.reply({ embeds: [errorEmbed("Seçilen radyo bulunamadı!")], ephemeral: true });
+      }
+
+      newStation = {
+        name: station.name,
+        value: station.url,
+        description: station.tags || "Radyo İstasyonu",
+        emoji: "📡",
+        category: "Eklenenler"
+      };
+    } else {
+      const name = interaction.options.getString("isim", true);
+      const url = interaction.options.getString("url", true);
+      const description = interaction.options.getString("aciklama", true);
+      const category = interaction.options.getString("kategori", true);
+
+      if (!url.startsWith("http")) {
+        return interaction.reply({ embeds: [errorEmbed("Geçerli bir URL girin!")], ephemeral: true });
+      }
+
+      newStation = { name, value: url, description, emoji: "📻", category };
     }
-
-    const newStation = {
-      name,
-      value: url,
-      description,
-      emoji: "📻",
-      category,
-    };
 
     try {
       addGuildStation(guildId, newStation);
-    } catch (e) {
-      console.error("Radyo istasyonu kaydedilirken hata oluştu:", e);
-
-      // Bellekte dursun ama dosyaya yazılamadıysa kullanıcıyı uyar
-      return interaction.reply({
-        embeds: [
-          errorEmbed(
-            "Radyo belleğe eklendi fakat dosyaya kaydedilemedi. Lütfen logları kontrol edin.",
-          ),
-        ],
-        ephemeral: true,
+      await interaction.reply({
+        embeds: [successEmbed(`**${newStation.name}** başarıyla radyo listenize eklendi! artık /radyo menüsünde görebilirsiniz.`) ]
       });
+    } catch (e) {
+      await interaction.reply({ embeds: [errorEmbed("Kaydedilirken bir hata oluştu.")], ephemeral: true });
     }
-
-    await interaction.reply({
-      embeds: [
-        successEmbed(
-          `Yeni radyo istasyonu eklendi:\n**İsim:** ${name}\n**URL:** ${url}\n**Kategori:** ${category}\n**Emoji:** 📻`,
-        ),
-      ],
-    });
   },
 };
 
