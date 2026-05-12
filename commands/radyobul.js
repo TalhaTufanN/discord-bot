@@ -46,6 +46,14 @@ module.exports = {
     });
 
     try {
+      // Get the current queue
+      const queue = interaction.client.distube.getQueue(interaction.guildId);
+      
+      // If something is playing, stop it first to switch immediately
+      if (queue) {
+        await queue.stop();
+      }
+
       await interaction.client.distube.play(voiceChannel, station.url, {
         member: interaction.member,
         textChannel: interaction.channel,
