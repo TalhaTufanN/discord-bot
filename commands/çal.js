@@ -92,10 +92,58 @@ module.exports = {
       
       timer.mark("URL Temizleme");
 
-      // If not a URL, search YouTube
-      if (!isUrl) {
+      let searchTerm = null;
+
+      // If it's a Spotify link, get the song name and search YouTube
+      if (isSpotify) {
         try {
-          const searchResults = await youtubePlugin.search(query, {
+          // Use Spotify oEmbed API to get track info (no API key needed)
+          const oEmbedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(query)}`;
+          const response = await fetch(oEmbedUrl);
+
+          if (!response.ok) {
+            return await interaction.editReply({
+              embeds: [
+                errorEmbed(`${emojis.error} Spotify linki çözümlenemedi.`),
+              ],
+            });
+          }
+
+          const data = await response.json();
+          // title format: "şarkı adı - sanatçı"
+          searchTerm = data.title || null;
+
+          if (!searchTerm) {
+            return await interaction.editReply({
+              embeds: [
+                errorEmbed(
+                  `${emojis.error} Spotify'dan şarkı bilgisi alınamadı.`,
+                ),
+              ],
+            });
+          }
+
+          console.log(
+            `[Spotify] "${query}" -> YouTube araması: "${searchTerm}"`,
+          );
+        } catch (spotifyError) {
+          console.error("Spotify oEmbed error:", spotifyError);
+          return await interaction.editReply({
+            embeds: [
+              errorEmbed(
+                `${emojis.error} Spotify linki işlenirken hata oluştu: ${spotifyError.message}`,
+              ),
+            ],
+          });
+        }
+        timer.mark("Spotify Çözümleme");
+      }
+
+      // If not a URL or if it's a Spotify link, search YouTube
+      if (!isUrl || isSpotify) {
+        const youtubeSearchQuery = searchTerm || query;
+        try {
+          const searchResults = await youtubePlugin.search(youtubeSearchQuery, {
             limit: 1,
             type: "video",
           });
@@ -106,7 +154,7 @@ module.exports = {
             return await interaction.editReply({
               embeds: [
                 errorEmbed(
-                  `${emojis.error} YouTube'da "${query}" için sonuç bulunamadı.`,
+                  `${emojis.error} YouTube'da "${youtubeSearchQuery}" için sonuç bulunamadı.`,
                 ),
               ],
             });
