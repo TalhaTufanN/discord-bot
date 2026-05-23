@@ -80,12 +80,52 @@ const ytCookies = parseNetscapeCookies();
 const ytDlpPlugin = new YtDlpPlugin({ update: false });
 const youtubePlugin = new YouTubePlugin({ cookies: ytCookies });
 
-// Bypass YouTubePlugin's broken ytdl-core streaming entirely
-// and redirect all stream requests to YtDlpPlugin (yt-dlp)
-youtubePlugin.getStreamURL = async function (song) {
-  console.log(`[Stream Redirect] Redirecting getStreamURL for "${song.name}" to YtDlpPlugin.`);
-  return ytDlpPlugin.getStreamURL(song);
-};
+// Capture the original ytDlp getStreamURL method
+const originalYtDlpGetStreamURL = ytDlpPlugin.getStreamURL.bind(ytDlpPlugin);
+
+// Helper for self-healing streaming
+async function getStreamURLWithFallback(song) {
+  console.log(`[Streaming] Resolving stream for "${song.name}" (${song.url || 'No URL'})`);
+  try {
+    return await originalYtDlpGetStreamURL(song);
+  } catch (err) {
+    const errMsg = err.message || String(err);
+    const isBotOrRestrict = 
+      errMsg.includes("Sign in") || 
+      errMsg.includes("LOGIN_REQUIRED") || 
+      errMsg.includes("confirm you're not a bot") || 
+      errMsg.includes("bot") ||
+      errMsg.includes("formats");
+      
+    if (isBotOrRestrict) {
+      console.log(`[Streaming Alert] "${song.name}" is age-restricted or blocked by YouTube. Searching for clean fallback audio...`);
+      try {
+        const query = `${song.name} Audio`;
+        const results = await client.distube.search(query, { limit: 5 });
+        for (const result of results) {
+          if (result.id === song.id) continue;
+          try {
+            console.log(`[Streaming Fallback] Attempting clean version: "${result.name}" (${result.url})`);
+            const fallbackUrl = await originalYtDlpGetStreamURL(result);
+            if (fallbackUrl) {
+              console.log(`[Streaming Fallback] SUCCESS! Playing non-restricted version: "${result.name}"`);
+              return fallbackUrl;
+            }
+          } catch (fallbackErr) {
+            console.log(`[Streaming Fallback] Clean version "${result.name}" failed: ${fallbackErr.message || fallbackErr}`);
+          }
+        }
+      } catch (searchErr) {
+        console.error("[Streaming Fallback] Search failed:", searchErr.message || searchErr);
+      }
+    }
+    throw err;
+  }
+}
+
+// Override getStreamURL for BOTH plugins to use our self-healing fallback mechanism
+ytDlpPlugin.getStreamURL = getStreamURLWithFallback;
+youtubePlugin.getStreamURL = getStreamURLWithFallback;
 
 // Initialize DisTube
 const ffmpegPath = require("ffmpeg-static");
