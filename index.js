@@ -132,6 +132,7 @@ const ffmpegPath = require("ffmpeg-static");
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
   ffmpeg: {
+    path: "ffmpeg",
     args: {
       input: {
         "-reconnect": 1,
