@@ -33,13 +33,57 @@ const client = new Client({
 // Create collections for commands
 client.commands = new Collection();
 
+// Parse cookies from Netscape format (cookies.txt) for YouTubePlugin
+function parseNetscapeCookies() {
+  const possiblePaths = [
+    path.join(__dirname, "cookies.txt"),
+    "/root/.config/yt-dlp/cookies.txt",
+    path.join("/root", ".config", "yt-dlp", "cookies.txt")
+  ];
+  
+  for (const filePath of possiblePaths) {
+    if (fs.existsSync(filePath)) {
+      try {
+        console.log(`[Cookies] Reading cookies from: ${filePath}`);
+        const content = fs.readFileSync(filePath, "utf8");
+        const cookies = [];
+        const lines = content.split("\n");
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("#")) continue;
+          const parts = trimmed.split("\t");
+          if (parts.length < 7) continue;
+          cookies.push({
+            domain: parts[0],
+            path: parts[2],
+            secure: parts[3] === "TRUE",
+            expirationDate: parseInt(parts[4], 10),
+            name: parts[5],
+            value: parts[6],
+          });
+        }
+        if (cookies.length > 0) {
+          console.log(`[Cookies] Successfully parsed ${cookies.length} cookies!`);
+          return cookies;
+        }
+      } catch (err) {
+        console.error(`[Cookies] Error parsing ${filePath}:`, err);
+      }
+    }
+  }
+  console.log("[Cookies] No valid cookies.txt found in search paths.");
+  return undefined;
+}
+
+const ytCookies = parseNetscapeCookies();
+
 // Initialize DisTube
 const ffmpegPath = require("ffmpeg-static");
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
   plugins: [
     new SpotifyPlugin({}),
-    new YouTubePlugin({}),
+    new YouTubePlugin({ cookies: ytCookies }),
     new YtDlpPlugin({ update: false }),
   ],
 });
