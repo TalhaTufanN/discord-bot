@@ -132,15 +132,7 @@ const ffmpegPath = require("ffmpeg-static");
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
   ffmpeg: {
-    path: "/usr/bin/ffmpeg",
-    args: {
-      input: {
-        "-reconnect": 1,
-        "-reconnect_at_eof": 1,
-        "-reconnect_streamed": 1,
-        "-reconnect_delay_max": 5
-      }
-    }
+    path: "/usr/bin/ffmpeg"
   },
   plugins: [
     new SpotifyPlugin({}),
