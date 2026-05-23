@@ -28,6 +28,11 @@ exports.handleDistubeEvents = (client) => {
   // Initialize music messages map
   client.musicMessages = client.musicMessages || new Map();
 
+  // FFmpeg Debugging
+  distube.on("ffmpegDebug", (message) => {
+    console.log(`[FFmpeg Debug] ${message}`);
+  });
+
   const updateMusicMessage = async (queue, embed, components = []) => {
     const guildId = queue.textChannel.guild.id;
     const lastMessage = client.musicMessages.get(guildId);
@@ -268,7 +273,7 @@ exports.handleDistubeEvents = (client) => {
       // If it's a radio station error, we might want to ignore the "user-facing" error message 
       // because the retry logic in 'finish' will try to fix it.
       if (queue._lastRadio) {
-        console.log(`[Radio Error] ${queue.guild.name}: Stream error detected for ${queue._lastRadio.name}. Retry logic will follow.`);
+        console.log(`[Radio Error] ${queue.textChannel.guild.name}: Stream error detected for ${queue._lastRadio.name}. Retry logic will follow.`);
         return;
       }
 
@@ -308,7 +313,7 @@ exports.handleDistubeEvents = (client) => {
       queue._radioRetryCount = (queue._radioRetryCount || 0) + 1;
       
       if (queue._radioRetryCount <= 5) {
-        console.log(`[Radio Retry #${queue._radioRetryCount}] ${queue.guild.name}: Connection lost to ${queue._lastRadio.name}. Retrying in 3 seconds...`);
+        console.log(`[Radio Retry #${queue._radioRetryCount}] ${queue.textChannel.guild.name}: Connection lost to ${queue._lastRadio.name}. Retrying in 3 seconds...`);
         
         try {
           await new Promise(resolve => setTimeout(resolve, 3000));
@@ -329,10 +334,10 @@ exports.handleDistubeEvents = (client) => {
           });
           return;
         } catch (error) {
-          console.error(`[Radio Retry Failed] ${queue.guild.name}:`, error);
+          console.error(`[Radio Retry Failed] ${queue.textChannel.guild.name}:`, error);
         }
       } else {
-        console.log(`[Radio Retry Aborted] ${queue.guild.name}: Max retries reached for ${queue._lastRadio.name}.`);
+        console.log(`[Radio Retry Aborted] ${queue.textChannel.guild.name}: Max retries reached for ${queue._lastRadio.name}.`);
         queue.textChannel.send({
           embeds: [new EmbedBuilder().setColor("#FF0000").setDescription(`❌ **${queue._lastRadio.name}** istasyonuna 5 kez bağlanılamadı. Yayın şu an çevrimdışı olabilir.`)]
         });
