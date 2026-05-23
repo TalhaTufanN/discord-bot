@@ -83,8 +83,8 @@ client.distube = new DisTube(client, {
   emitNewSongOnly: true,
   plugins: [
     new SpotifyPlugin({}),
-    new YouTubePlugin({ cookies: ytCookies }),
     new YtDlpPlugin({ update: false }),
+    new YouTubePlugin({ cookies: ytCookies }),
   ],
 });
 
