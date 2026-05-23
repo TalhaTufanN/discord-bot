@@ -67,14 +67,6 @@ module.exports = {
       const isSpotify =
         isUrl &&
         (query.includes("spotify.com") || query.includes("open.spotify"));
-      const isSpotifyList =
-        isSpotify &&
-        (query.includes("/playlist/") ||
-          query.includes("/album/") ||
-          query.includes("/artist/") ||
-          query.includes("spotify:playlist:") ||
-          query.includes("spotify:album:") ||
-          query.includes("spotify:artist:"));
       let playQuery = query;
 
       // Clean YouTube Mix/Radio URLs (remove list & start_radio)
@@ -102,8 +94,8 @@ module.exports = {
 
       let searchTerm = null;
 
-      // If it's a Spotify link and NOT a playlist/album/artist, get the song name and search YouTube
-      if (isSpotify && !isSpotifyList) {
+      // If it's a Spotify link, get the song name and search YouTube
+      if (isSpotify) {
         try {
           // Use Spotify oEmbed API to get track info (no API key needed)
           const oEmbedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(query)}`;
@@ -147,8 +139,8 @@ module.exports = {
         timer.mark("Spotify Çözümleme");
       }
 
-      // If not a URL or if it's a Spotify single track, search YouTube
-      if (!isUrl || (isSpotify && !isSpotifyList)) {
+      // If not a URL or if it's a Spotify link, search YouTube
+      if (!isUrl || isSpotify) {
         const youtubeSearchQuery = searchTerm || query;
         try {
           const searchResults = await youtubePlugin.search(youtubeSearchQuery, {
