@@ -77,14 +77,24 @@ function parseNetscapeCookies() {
 
 const ytCookies = parseNetscapeCookies();
 
+const ytDlpPlugin = new YtDlpPlugin({ update: false });
+const youtubePlugin = new YouTubePlugin({ cookies: ytCookies });
+
+// Bypass YouTubePlugin's broken ytdl-core streaming entirely
+// and redirect all stream requests to YtDlpPlugin (yt-dlp)
+youtubePlugin.getStreamURL = async function (song) {
+  console.log(`[Stream Redirect] Redirecting getStreamURL for "${song.name}" to YtDlpPlugin.`);
+  return ytDlpPlugin.getStreamURL(song);
+};
+
 // Initialize DisTube
 const ffmpegPath = require("ffmpeg-static");
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
   plugins: [
     new SpotifyPlugin({}),
-    new YtDlpPlugin({ update: false }),
-    new YouTubePlugin({ cookies: ytCookies }),
+    ytDlpPlugin,
+    youtubePlugin,
   ],
 });
 
