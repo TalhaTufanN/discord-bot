@@ -129,7 +129,6 @@ youtubePlugin.getStreamURL = getStreamURLWithFallback;
 
 // Initialize DisTube
 const ffmpegPath = require("ffmpeg-static");
-const { DirectLinkPlugin } = require("distube");
 client.distube = new DisTube(client, {
   emitNewSongOnly: true,
   ffmpeg: {
@@ -139,7 +138,6 @@ client.distube = new DisTube(client, {
     new SpotifyPlugin({}),
     ytDlpPlugin,
     youtubePlugin,
-    new DirectLinkPlugin()
   ],
 });
 
