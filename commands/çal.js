@@ -134,7 +134,8 @@ module.exports = {
 
       // Edit the deferred reply
       const embed = infoEmbed(`${emojis.search} Aranıyor: \`${query}\``);
-      embed.setDescription(embed.data.description + timer.getReport());
+      // Performans raporunu deaktif ettik, ileride gerekirse açılabilir
+      // embed.setDescription(embed.data.description + timer.getReport());
       
       await interaction.editReply({
         embeds: [embed],
@@ -142,7 +143,8 @@ module.exports = {
     } catch (error) {
       console.error(error);
       const embed = errorEmbed(`${emojis.error} Müzik çalarken hata oluştu: ${error.message}`);
-      embed.setDescription(embed.data.description + timer.getReport());
+      // Performans raporunu deaktif ettik, ileride gerekirse açılabilir
+      // embed.setDescription(embed.data.description + timer.getReport());
       
       await interaction.editReply({
         embeds: [embed],

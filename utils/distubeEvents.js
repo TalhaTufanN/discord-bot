@@ -72,14 +72,13 @@ exports.handleDistubeEvents = (client) => {
   distube.on("playSong", async (queue, song) => {
     // Reset retry counter on successful play
     queue._radioRetryCount = 0;
-    
+
     // Clear any existing interval for this guild first
     clearRadioInterval(queue.id);
 
     // Check if it's a radio station
-    const isRadio =
-      song.metadata && song.metadata.stationName;
-    
+    const isRadio = song.metadata && song.metadata.stationName;
+
     // Store radio info for auto-retry if it's a radio
     if (isRadio) {
       queue._lastRadio = {
@@ -196,21 +195,26 @@ exports.handleDistubeEvents = (client) => {
     if (isRadio) {
       const interval = setInterval(async () => {
         const newMeta = await getStationMetadata(song.metadata.stationName);
-        if (newMeta && (newMeta.artist !== lastArtist || newMeta.song !== lastSong)) {
+        if (
+          newMeta &&
+          (newMeta.artist !== lastArtist || newMeta.song !== lastSong)
+        ) {
           lastArtist = newMeta.artist;
           lastSong = newMeta.song;
           const updatedInfo = `\n\n🎵 **Şu An Çalıyor:**\n> ${newMeta.artist} - ${newMeta.song}`;
-          
+
           // Get current message and update it
           const currentMsg = client.musicMessages.get(queue.id);
           if (currentMsg) {
-            await currentMsg.edit({ embeds: [createEmbed(updatedInfo)] }).catch(() => {
+            await currentMsg
+              .edit({ embeds: [createEmbed(updatedInfo)] })
+              .catch(() => {
                 clearRadioInterval(queue.id);
-            });
+              });
           }
         }
       }, 5000); // 5 seconds responsiveness
-      
+
       radioUpdateIntervals.set(queue.id, interval);
     }
   });
@@ -218,15 +222,12 @@ exports.handleDistubeEvents = (client) => {
   // When a song is added to the queue
   distube.on("addSong", (queue, song) => {
     // If it's a radio station, don't show "Added to Queue" message
-    if (
-      song.metadata &&
-      song.metadata.stationName
-    ) {
+    if (song.metadata && song.metadata.stationName) {
       return;
     }
 
     const embed = new EmbedBuilder()
-      .setColor("#0099FF")
+      .setColor("#2B2D31")
       .setTitle(`${emojis.success} Kuyruğa Eklendi`)
       .setDescription(`[${song.name}](${song.url})`)
       .addFields(
@@ -250,8 +251,8 @@ exports.handleDistubeEvents = (client) => {
   // When a playlist is added to the queue
   distube.on("addList", (queue, playlist) => {
     const embed = new EmbedBuilder()
-      .setColor("#0099FF")
-      .setTitle(`${emojis.playlist} Çalma Listesi Eklendi`)
+      .setColor("#2B2D31")
+      .setTitle("Çalma Listesi Eklendi")
       .setDescription(`[${playlist.name}](${playlist.url})`)
       .addFields(
         {
@@ -270,10 +271,12 @@ exports.handleDistubeEvents = (client) => {
   distube.on("error", (error, queue) => {
     console.error("DisTube Error:", error);
     if (queue && queue.textChannel) {
-      // If it's a radio station error, we might want to ignore the "user-facing" error message 
+      // If it's a radio station error, we might want to ignore the "user-facing" error message
       // because the retry logic in 'finish' will try to fix it.
       if (queue._lastRadio) {
-        console.log(`[Radio Error] ${queue.textChannel.guild.name}: Stream error detected for ${queue._lastRadio.name}. Retry logic will follow.`);
+        console.log(
+          `[Radio Error] ${queue.textChannel.guild.name}: Stream error detected for ${queue._lastRadio.name}. Retry logic will follow.`,
+        );
         return;
       }
 
@@ -294,7 +297,7 @@ exports.handleDistubeEvents = (client) => {
     // Check if this was an intentional stop or skip
     if (queue._intentionalStop) {
       queue._intentionalStop = false;
-      
+
       // If 24/7 mode is active, don't say queue finished
       if (client.radioMode) return;
 
@@ -311,12 +314,14 @@ exports.handleDistubeEvents = (client) => {
     if (queue._lastRadio && !queue._intentionalStop) {
       // Limit retries to 5 times to avoid infinite loops if station is dead
       queue._radioRetryCount = (queue._radioRetryCount || 0) + 1;
-      
+
       if (queue._radioRetryCount <= 5) {
-        console.log(`[Radio Retry #${queue._radioRetryCount}] ${queue.textChannel.guild.name}: Connection lost to ${queue._lastRadio.name}. Retrying in 3 seconds...`);
-        
+        console.log(
+          `[Radio Retry #${queue._radioRetryCount}] ${queue.textChannel.guild.name}: Connection lost to ${queue._lastRadio.name}. Retrying in 3 seconds...`,
+        );
+
         try {
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          await new Promise((resolve) => setTimeout(resolve, 3000));
           if (!queue.voiceChannel) return;
 
           await distube.play(queue.voiceChannel, queue._lastRadio.url, {
@@ -327,25 +332,37 @@ exports.handleDistubeEvents = (client) => {
 
           const retryEmbed = new EmbedBuilder()
             .setColor("#00FF00")
-            .setDescription(`${emojis.success} Bağlantı kesildi, **${queue._lastRadio.name}** istasyonuna tekrar bağlanılıyor... (Deneme ${queue._radioRetryCount}/5)`);
-          
-          queue.textChannel.send({ embeds: [retryEmbed] }).then(msg => {
+            .setDescription(
+              `${emojis.success} Bağlantı kesildi, **${queue._lastRadio.name}** istasyonuna tekrar bağlanılıyor... (Deneme ${queue._radioRetryCount}/5)`,
+            );
+
+          queue.textChannel.send({ embeds: [retryEmbed] }).then((msg) => {
             setTimeout(() => msg.delete().catch(() => {}), 5000);
           });
           return;
         } catch (error) {
-          console.error(`[Radio Retry Failed] ${queue.textChannel.guild.name}:`, error);
+          console.error(
+            `[Radio Retry Failed] ${queue.textChannel.guild.name}:`,
+            error,
+          );
         }
       } else {
-        console.log(`[Radio Retry Aborted] ${queue.textChannel.guild.name}: Max retries reached for ${queue._lastRadio.name}.`);
+        console.log(
+          `[Radio Retry Aborted] ${queue.textChannel.guild.name}: Max retries reached for ${queue._lastRadio.name}.`,
+        );
         queue.textChannel.send({
-          embeds: [new EmbedBuilder().setColor("#FF0000").setDescription(`❌ **${queue._lastRadio.name}** istasyonuna 5 kez bağlanılamadı. Yayın şu an çevrimdışı olabilir.`)]
+          embeds: [
+            new EmbedBuilder()
+              .setColor("#FF0000")
+              .setDescription(
+                `❌ **${queue._lastRadio.name}** istasyonuna 5 kez bağlanılamadı. Yayın şu an çevrimdışı olabilir.`,
+              ),
+          ],
         });
         delete queue._lastRadio;
         queue._radioRetryCount = 0;
       }
     }
-
 
     // Default behavior for normal songs or failed retries
     if (client.radioMode) {
