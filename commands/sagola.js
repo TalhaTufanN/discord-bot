@@ -3,6 +3,7 @@ const { infoEmbed, errorEmbed } = require("../utils/embeds");
 const { emojis } = require("../config/emojis");
 const fs = require("fs");
 const path = require("path");
+const { pathToFileURL } = require("url");
 const PerformanceTimer = require("../utils/timer");
 
 // Türkçe karakterleri ve büyük/küçük harf duyarlılığını temizleyen yardımcı fonksiyon
@@ -136,10 +137,13 @@ module.exports = {
           // Şarkıları isme göre sırala (Track number'a göre sıralanması için)
           albumFiles.sort();
 
+          // Dosya yollarını DisTube'un kesinlikle "dosya" olarak algılaması için file:// URL'sine çevir
+          const fileUrls = albumFiles.map(filePath => pathToFileURL(filePath).href);
+
           timer.mark("Albüm Bulma ve Sıralama");
 
           // DisTube Custom Playlist oluştur
-          const playlist = await interaction.client.distube.createCustomPlaylist(albumFiles, {
+          const playlist = await interaction.client.distube.createCustomPlaylist(fileUrls, {
             member: interaction.member,
             properties: { name: `Albüm: ${matchedAlbum}` }
           });
@@ -165,10 +169,11 @@ module.exports = {
           // Şarkı bulundu! İlk eşleşeni çalalım
           const matchedSong = matchedSongPaths[0];
           const songName = path.basename(matchedSong, path.extname(matchedSong));
+          const fileUrl = pathToFileURL(matchedSong).href;
 
           timer.mark("Şarkı Bulma");
 
-          await interaction.client.distube.play(voiceChannel, matchedSong, {
+          await interaction.client.distube.play(voiceChannel, fileUrl, {
             member: interaction.member,
             textChannel: interaction.channel,
             metadata: { interaction },
@@ -203,10 +208,11 @@ module.exports = {
       const randomIndex = Math.floor(Math.random() * allFiles.length);
       const randomSongPath = allFiles[randomIndex];
       const songName = path.basename(randomSongPath, path.extname(randomSongPath));
+      const fileUrl = pathToFileURL(randomSongPath).href;
 
       timer.mark("Şarkı Seçimi (Rastgele)");
 
-      await interaction.client.distube.play(voiceChannel, randomSongPath, {
+      await interaction.client.distube.play(voiceChannel, fileUrl, {
         member: interaction.member,
         textChannel: interaction.channel,
         metadata: { interaction },
