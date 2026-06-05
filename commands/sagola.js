@@ -3,7 +3,7 @@ const { infoEmbed, errorEmbed } = require("../utils/embeds");
 const { emojis } = require("../config/emojis");
 const fs = require("fs");
 const path = require("path");
-const { pathToFileURL } = require("url");
+const { Song } = require("distube");
 const PerformanceTimer = require("../utils/timer");
 
 // Türkçe karakterleri ve büyük/küçük harf duyarlılığını temizleyen yardımcı fonksiyon
@@ -53,6 +53,18 @@ function getDirectories(dirPath) {
   } catch (error) {
     return [];
   }
+}
+
+// Yerel dosyalar için özel DisTube Song nesnesi oluşturan fonksiyon
+function createLocalSong(filePath, interaction) {
+  const fileName = path.basename(filePath, path.extname(filePath));
+  return new Song({
+    id: filePath,
+    name: fileName,
+    url: filePath,
+    streamURL: filePath,
+    source: "file",
+  }, { member: interaction.member, metadata: { interaction } });
 }
 
 module.exports = {
@@ -137,13 +149,13 @@ module.exports = {
           // Şarkıları isme göre sırala (Track number'a göre sıralanması için)
           albumFiles.sort();
 
-          // Dosya yollarını DisTube'un kesinlikle "dosya" olarak algılaması için file:// URL'sine çevir
-          const fileUrls = albumFiles.map(filePath => pathToFileURL(filePath).href);
+          // DisTube'un dosyaları dışarıda aramasını engellemek için direkt Song nesnesi oluştur
+          const songs = albumFiles.map(filePath => createLocalSong(filePath, interaction));
 
           timer.mark("Albüm Bulma ve Sıralama");
 
           // DisTube Custom Playlist oluştur
-          const playlist = await interaction.client.distube.createCustomPlaylist(fileUrls, {
+          const playlist = await interaction.client.distube.createCustomPlaylist(songs, {
             member: interaction.member,
             properties: { name: `Albüm: ${matchedAlbum}` }
           });
@@ -168,12 +180,11 @@ module.exports = {
         if (matchedSongPaths.length > 0) {
           // Şarkı bulundu! İlk eşleşeni çalalım
           const matchedSong = matchedSongPaths[0];
-          const songName = path.basename(matchedSong, path.extname(matchedSong));
-          const fileUrl = pathToFileURL(matchedSong).href;
+          const songObj = createLocalSong(matchedSong, interaction);
 
           timer.mark("Şarkı Bulma");
 
-          await interaction.client.distube.play(voiceChannel, fileUrl, {
+          await interaction.client.distube.play(voiceChannel, songObj, {
             member: interaction.member,
             textChannel: interaction.channel,
             metadata: { interaction },
@@ -182,7 +193,7 @@ module.exports = {
           timer.mark("DisTube Play");
 
           return interaction.editReply({
-            embeds: [infoEmbed(`${emojis.music} **Sagopa Kajmer** çalınıyor:\n\`${songName}\``)],
+            embeds: [infoEmbed(`${emojis.music} **Sagopa Kajmer** çalınıyor:\n\`${songObj.name}\``)],
           });
         }
 
@@ -207,12 +218,11 @@ module.exports = {
 
       const randomIndex = Math.floor(Math.random() * allFiles.length);
       const randomSongPath = allFiles[randomIndex];
-      const songName = path.basename(randomSongPath, path.extname(randomSongPath));
-      const fileUrl = pathToFileURL(randomSongPath).href;
+      const songObj = createLocalSong(randomSongPath, interaction);
 
       timer.mark("Şarkı Seçimi (Rastgele)");
 
-      await interaction.client.distube.play(voiceChannel, fileUrl, {
+      await interaction.client.distube.play(voiceChannel, songObj, {
         member: interaction.member,
         textChannel: interaction.channel,
         metadata: { interaction },
@@ -221,7 +231,7 @@ module.exports = {
       timer.mark("DisTube Play");
 
       return interaction.editReply({
-        embeds: [infoEmbed(`${emojis.music} **Sagopa Kajmer** çalınıyor:\n\`${songName}\``)],
+        embeds: [infoEmbed(`${emojis.music} **Sagopa Kajmer** çalınıyor:\n\`${songObj.name}\``)],
       });
 
     } catch (error) {
@@ -234,3 +244,4 @@ module.exports = {
     }
   },
 };
+
