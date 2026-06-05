@@ -6,6 +6,38 @@ const path = require("path");
 const { Song } = require("distube");
 const PerformanceTimer = require("../utils/timer");
 
+// Cache for autocomplete
+let cache = {
+  albums: [],
+  songs: [],
+  lastUpdated: 0
+};
+
+function updateCache(musicPath) {
+  const now = Date.now();
+  // Saniyede bir güncellemeye gerek yok, 60 saniyede bir klasörü taramak yeterli
+  if (now - cache.lastUpdated < 60000) return;
+  
+  if (!fs.existsSync(musicPath)) return;
+  
+  try {
+    cache.albums = fs.readdirSync(musicPath, { withFileTypes: true })
+      .filter(dirent => dirent.isDirectory())
+      .map(dirent => dirent.name);
+      
+    const allFiles = getAllAudioFiles(musicPath);
+    cache.songs = allFiles.map(f => ({
+      name: path.basename(f, path.extname(f)),
+      path: f,
+      album: path.basename(path.dirname(f))
+    }));
+    
+    cache.lastUpdated = now;
+  } catch (err) {
+    console.error("Cache update error:", err);
+  }
+}
+
 // Türkçe karakterleri ve büyük/küçük harf duyarlılığını temizleyen yardımcı fonksiyon
 function normalize(str) {
   if (!str) return "";
@@ -44,27 +76,25 @@ function getAllAudioFiles(dirPath, arrayOfFiles) {
   return arrayOfFiles;
 }
 
-// Ana dizindeki alt klasörleri (albümleri) bulur
-function getDirectories(dirPath) {
-  try {
-    return fs.readdirSync(dirPath, { withFileTypes: true })
-      .filter(dirent => dirent.isDirectory())
-      .map(dirent => dirent.name);
-  } catch (error) {
-    return [];
-  }
-}
-
 // Yerel dosyalar için özel DisTube Song nesnesi oluşturan fonksiyon
 function createLocalSong(filePath, interaction) {
   const fileName = path.basename(filePath, path.extname(filePath));
-  return new Song({
+  const song = new Song({
     id: filePath,
     name: fileName,
     url: filePath,
     streamURL: filePath,
     source: "file",
   }, { member: interaction.member, metadata: { interaction } });
+  
+  // HACK: Bypass "There is no plugin supporting this song" error
+  // DisTube'un kurulu eklentilerinden birini kandırmaca olarak veriyoruz.
+  // streamURL dolu olduğu için bu eklentiyi kullanmaya çalışmayacak.
+  if (interaction.client.distube.extractorPlugins && interaction.client.distube.extractorPlugins.length > 0) {
+    song.plugin = interaction.client.distube.extractorPlugins[0];
+  }
+  
+  return song;
 }
 
 module.exports = {
@@ -74,13 +104,53 @@ module.exports = {
     .addStringOption((option) =>
       option
         .setName("arama")
-        .setDescription("Rastgele için boş bırakın. Albüm veya şarkı adı yazabilirsiniz.")
-        .setRequired(false),
+        .setDescription("Rastgele için boş bırakın veya açılır pencereden seçin.")
+        .setRequired(false)
+        .setAutocomplete(true),
     ),
+
+  async autocomplete(interaction) {
+    const focusedValue = interaction.options.getFocused();
+    const normalizedFocused = normalize(focusedValue);
+    
+    const musicPath = process.env.SAGOPA_PATH || path.join(__dirname, "..", "music", "Sagopa Kajmer");
+    updateCache(musicPath);
+    
+    const choices = [];
+    
+    if (!normalizedFocused) {
+      choices.push({ name: "🎲 Rastgele (Karışık Çal)", value: "rastgele" });
+    }
+    
+    // Albümleri eşleştir
+    cache.albums.forEach(album => {
+      if (normalize(album).includes(normalizedFocused)) {
+        choices.push({ name: `💿 Albüm: ${album}`, value: `album:${album}` });
+      }
+    });
+    
+    // Şarkıları eşleştir
+    cache.songs.forEach(song => {
+      if (normalize(song.name).includes(normalizedFocused)) {
+        // Değer (value) kısmı 100 karakteri geçemez (Discord limiti). Dosya yolu uzunsa sadece ismini verip execute'da bulalım.
+        const valueStr = `sarki:${song.path}`;
+        if (valueStr.length <= 100) {
+            choices.push({ name: `🎵 ${song.name} (${song.album})`, value: valueStr });
+        } else {
+            choices.push({ name: `🎵 ${song.name} (${song.album})`, value: `isim:${song.name}` });
+        }
+      }
+    });
+    
+    // En fazla 25 sonuç (Discord limiti)
+    await interaction.respond(
+      choices.slice(0, 25)
+    );
+  },
 
   async execute(interaction) {
     const timer = new PerformanceTimer();
-    const query = interaction.options.getString("arama");
+    const query = interaction.options.getString("arama") || "rastgele";
     const voiceChannel = interaction.member.voice.channel;
 
     // Check if user is in a voice channel
@@ -115,132 +185,125 @@ module.exports = {
     timer.mark("Yanıt Erteleme");
 
     try {
-      // Şarkıların bulunduğu klasör yolu (.env dosyasından alınır, yoksa varsayılan)
       const musicPath = process.env.SAGOPA_PATH || path.join(__dirname, "..", "music", "Sagopa Kajmer");
 
       if (!fs.existsSync(musicPath)) {
         return interaction.editReply({
           embeds: [
             errorEmbed(
-              `${emojis.error} Şarkıların bulunduğu klasör bulunamadı!\nBeklenen yol: \`${musicPath}\`\nLütfen .env dosyasına \`SAGOPA_PATH\` ekleyin veya şarkıları bu yola yükleyin.`
+              `${emojis.error} Şarkıların bulunduğu klasör bulunamadı!\nBeklenen yol: \`${musicPath}\``
             ),
           ],
         });
       }
 
-      const normalizedQuery = normalize(query);
-
-      // 1. Durum: Sorgu var ve albüm adı olarak eşleşiyor mu?
-      if (normalizedQuery && normalizedQuery !== "rastgele") {
-        const albums = getDirectories(musicPath);
-        const matchedAlbum = albums.find(album => normalize(album).includes(normalizedQuery));
-
-        if (matchedAlbum) {
-          // Albüm bulundu! İçindeki tüm şarkıları bul ve sıraya ekle
-          const albumPath = path.join(musicPath, matchedAlbum);
-          let albumFiles = getAllAudioFiles(albumPath);
-          
-          if (albumFiles.length === 0) {
-            return interaction.editReply({
-              embeds: [errorEmbed(`${emojis.error} \`${matchedAlbum}\` albümünde hiç şarkı bulunamadı!`)]
-            });
-          }
-
-          // Şarkıları isme göre sırala (Track number'a göre sıralanması için)
-          albumFiles.sort();
-
-          // DisTube'un dosyaları dışarıda aramasını engellemek için direkt Song nesnesi oluştur
-          const songs = albumFiles.map(filePath => createLocalSong(filePath, interaction));
-
-          timer.mark("Albüm Bulma ve Sıralama");
-
-          // DisTube Custom Playlist oluştur
-          const playlist = await interaction.client.distube.createCustomPlaylist(songs, {
-            member: interaction.member,
-            properties: { name: `Albüm: ${matchedAlbum}` }
-          });
-
-          await interaction.client.distube.play(voiceChannel, playlist, {
-            member: interaction.member,
-            textChannel: interaction.channel,
-            metadata: { interaction },
-          });
-
-          timer.mark("DisTube Playlist Ekleme");
-
-          return interaction.editReply({
-            embeds: [infoEmbed(`${emojis.music} **Sagopa Kajmer**\n\`${matchedAlbum}\` albümündeki **${albumFiles.length}** şarkı sıraya eklendi!`)],
-          });
+      // 1. Durum: Autocomplete'ten "album:..." seçilmiş
+      if (query.startsWith("album:")) {
+        const albumName = query.substring(6);
+        const albumPath = path.join(musicPath, albumName);
+        let albumFiles = getAllAudioFiles(albumPath);
+        
+        if (albumFiles.length === 0) {
+          return interaction.editReply({ embeds: [errorEmbed(`${emojis.error} Albüm boş!`)] });
         }
+        
+        albumFiles.sort();
+        const songs = albumFiles.map(filePath => createLocalSong(filePath, interaction));
+        
+        const playlist = await interaction.client.distube.createCustomPlaylist(songs, {
+          member: interaction.member,
+          properties: { name: `Albüm: ${albumName}` }
+        });
 
-        // 2. Durum: Albüm eşleşmedi, şarkı adı olarak arayalım
-        const allFiles = getAllAudioFiles(musicPath);
-        const matchedSongPaths = allFiles.filter(f => normalize(path.basename(f)).includes(normalizedQuery));
+        await interaction.client.distube.play(voiceChannel, playlist, {
+          member: interaction.member,
+          textChannel: interaction.channel,
+          metadata: { interaction },
+        });
 
-        if (matchedSongPaths.length > 0) {
-          // Şarkı bulundu! İlk eşleşeni çalalım
-          const matchedSong = matchedSongPaths[0];
-          const songObj = createLocalSong(matchedSong, interaction);
-
-          timer.mark("Şarkı Bulma");
-
+        return interaction.editReply({
+          embeds: [infoEmbed(`${emojis.music} **Sagopa Kajmer**\n\`${albumName}\` albümü sıraya eklendi!`)],
+        });
+      }
+      
+      // 2. Durum: Autocomplete'ten "sarki:..." (dosya yolu) seçilmiş
+      if (query.startsWith("sarki:")) {
+        const filePath = query.substring(6);
+        if (fs.existsSync(filePath)) {
+          const songObj = createLocalSong(filePath, interaction);
           await interaction.client.distube.play(voiceChannel, songObj, {
             member: interaction.member,
             textChannel: interaction.channel,
             metadata: { interaction },
           });
-
-          timer.mark("DisTube Play");
-
           return interaction.editReply({
             embeds: [infoEmbed(`${emojis.music} **Sagopa Kajmer** çalınıyor:\n\`${songObj.name}\``)],
           });
         }
+      }
 
-        // 3. Durum: Ne albüm ne de şarkı bulunamadı
+      // 3. Durum: Autocomplete'ten "isim:..." seçilmiş (uzun dosya yolları için fallback)
+      if (query.startsWith("isim:")) {
+        const songName = query.substring(5);
+        const allFiles = getAllAudioFiles(musicPath);
+        const matched = allFiles.find(f => path.basename(f, path.extname(f)) === songName);
+        if (matched) {
+          const songObj = createLocalSong(matched, interaction);
+          await interaction.client.distube.play(voiceChannel, songObj, {
+            member: interaction.member,
+            textChannel: interaction.channel,
+          });
+          return interaction.editReply({ embeds: [infoEmbed(`${emojis.music} **Sagopa Kajmer** çalınıyor:\n\`${songObj.name}\``)] });
+        }
+      }
+
+      // 4. Durum: Rastgele
+      if (query === "rastgele") {
+        const allFiles = getAllAudioFiles(musicPath);
+        if (allFiles.length === 0) {
+          return interaction.editReply({ embeds: [errorEmbed(`${emojis.error} Dosya bulunamadı!`)] });
+        }
+        const randomIndex = Math.floor(Math.random() * allFiles.length);
+        const randomSongPath = allFiles[randomIndex];
+        const songObj = createLocalSong(randomSongPath, interaction);
+
+        await interaction.client.distube.play(voiceChannel, songObj, {
+          member: interaction.member,
+          textChannel: interaction.channel,
+          metadata: { interaction },
+        });
+        
         return interaction.editReply({
-          embeds: [errorEmbed(`${emojis.error} \`${query}\` ile eşleşen bir albüm veya şarkı bulunamadı.`)],
+          embeds: [infoEmbed(`${emojis.music} **Sagopa Kajmer** çalınıyor:\n\`${songObj.name}\``)],
         });
       }
 
-      // 4. Durum: Rastgele şarkı (Sorgu yok veya "rastgele")
+      // 5. Durum: Normal düz metin aranmış (Autocomplete kullanılmamış)
+      const normalizedQuery = normalize(query);
       const allFiles = getAllAudioFiles(musicPath);
+      const matchedSongPaths = allFiles.filter(f => normalize(path.basename(f)).includes(normalizedQuery));
 
-      if (allFiles.length === 0) {
+      if (matchedSongPaths.length > 0) {
+        const matchedSong = matchedSongPaths[0];
+        const songObj = createLocalSong(matchedSong, interaction);
+        await interaction.client.distube.play(voiceChannel, songObj, {
+          member: interaction.member,
+          textChannel: interaction.channel,
+          metadata: { interaction },
+        });
         return interaction.editReply({
-          embeds: [
-            errorEmbed(
-              `${emojis.error} Belirtilen klasörde hiç mp3 veya m4a dosyası bulunamadı!`
-            ),
-          ],
+          embeds: [infoEmbed(`${emojis.music} **Sagopa Kajmer** çalınıyor:\n\`${songObj.name}\``)],
         });
       }
-
-      const randomIndex = Math.floor(Math.random() * allFiles.length);
-      const randomSongPath = allFiles[randomIndex];
-      const songObj = createLocalSong(randomSongPath, interaction);
-
-      timer.mark("Şarkı Seçimi (Rastgele)");
-
-      await interaction.client.distube.play(voiceChannel, songObj, {
-        member: interaction.member,
-        textChannel: interaction.channel,
-        metadata: { interaction },
-      });
-      
-      timer.mark("DisTube Play");
 
       return interaction.editReply({
-        embeds: [infoEmbed(`${emojis.music} **Sagopa Kajmer** çalınıyor:\n\`${songObj.name}\``)],
+        embeds: [errorEmbed(`${emojis.error} \`${query}\` bulunamadı.`)],
       });
 
     } catch (error) {
       console.error(error);
       const embed = errorEmbed(`${emojis.error} Müzik çalarken hata oluştu: ${error.message}`);
-      
-      await interaction.editReply({
-        embeds: [embed],
-      });
+      await interaction.editReply({ embeds: [embed] });
     }
   },
 };
