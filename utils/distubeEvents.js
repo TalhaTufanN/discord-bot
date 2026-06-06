@@ -106,7 +106,7 @@ exports.handleDistubeEvents = (client) => {
     }
 
     const songName = isRadio ? song.metadata.stationName : song.name;
-    const uploader = isRadio ? "Canlı Radyo" : song.uploader.name;
+    const uploader = isRadio ? "Canlı Radyo" : (song.uploader?.name || "Sagopa Kajmer");
     const duration = isRadio ? "🔴 Canlı Yayın" : song.formattedDuration;
 
     const createEmbed = (extraInfo = currentSongInfo) => {
@@ -226,10 +226,14 @@ exports.handleDistubeEvents = (client) => {
       return;
     }
 
+    // Yerel dosya URL'lerini gizle, sadece HTTP(S) URL'lerini link olarak göster
+    const isLocalFile = !song.url || song.url.startsWith("file:") || song.url.startsWith("/");
+    const songDesc = isLocalFile ? `**${song.name}**` : `[${song.name}](${song.url})`;
+
     const embed = new EmbedBuilder()
       .setColor("#2B2D31")
       .setTitle(`${emojis.success} Kuyruğa Eklendi`)
-      .setDescription(`[${song.name}](${song.url})`)
+      .setDescription(songDesc)
       .addFields(
         { name: "Süre", value: `${song.formattedDuration}`, inline: true },
         { name: "İsteyen", value: `${song.user}`, inline: true },
@@ -250,10 +254,15 @@ exports.handleDistubeEvents = (client) => {
 
   // When a playlist is added to the queue
   distube.on("addList", (queue, playlist) => {
+    // Çalma listesi adı ve URL'si yerel albümler için undefined olabilir
+    const playlistName = playlist.name || "Albüm";
+    const isLocalPlaylist = !playlist.url || playlist.url.startsWith("file:") || playlist.url.startsWith("/");
+    const playlistDesc = isLocalPlaylist ? `**${playlistName}**` : `[${playlistName}](${playlist.url})`;
+
     const embed = new EmbedBuilder()
       .setColor("#2B2D31")
       .setTitle("Çalma Listesi Eklendi")
-      .setDescription(`[${playlist.name}](${playlist.url})`)
+      .setDescription(playlistDesc)
       .addFields(
         {
           name: "Eklenen şarkı",

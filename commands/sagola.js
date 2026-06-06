@@ -126,6 +126,7 @@ function createLocalSong(filePath, interaction) {
     url: fileUrl,
     source: "file",
     playFromSource: true,
+    uploader: { name: "Sagopa Kajmer", url: null },
   }, { member: interaction.member, metadata: { interaction } });
   
   // DisTube'un eklenti aramasını atlamak için doğrudan stream URL'ini dosya yolu olarak ayarlıyoruz
