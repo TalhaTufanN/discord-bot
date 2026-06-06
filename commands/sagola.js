@@ -77,15 +77,52 @@ function getAllAudioFiles(dirPath, arrayOfFiles) {
 }
 
 const { pathToFileURL } = require("url");
+const crypto = require("crypto");
+
+// Geçici boşluksuz dosyalar için klasör oluştur
+const tempDir = path.join(__dirname, "..", ".distube_temp");
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir);
+} else {
+  // Eski geçici dosyaları temizle
+  try {
+    const files = fs.readdirSync(tempDir);
+    for (const file of files) {
+      fs.unlinkSync(path.join(tempDir, file));
+    }
+  } catch (e) {}
+}
 
 // Yerel dosyalar için özel DisTube Song nesnesi oluşturan fonksiyon
 function createLocalSong(filePath, interaction) {
   const fileName = path.basename(filePath, path.extname(filePath));
-  const fileUrl = pathToFileURL(filePath).href;
+  
+  // HACK: DisTube, file:// URL'lerini okurken boşlukları %20 olarak encode ediyor.
+  // FFmpeg ise bu encode edilmiş yolu bulamadığı için "code 254" hatası ile çöküyor.
+  // Çözüm: Dosyanın adında hiç boşluk olmayan geçici bir "hardlink" veya "symlink" kopyasını 
+  // oluşturup DisTube'a onu veriyoruz.
+  const ext = path.extname(filePath);
+  const tempName = crypto.randomBytes(8).toString("hex") + ext;
+  const tempPath = path.join(tempDir, tempName);
+  
+  let usePath = filePath;
+  try {
+    fs.linkSync(filePath, tempPath); // Hardlink (aynı diskteyse çok hızlıdır ve alan kaplamaz)
+    usePath = tempPath;
+  } catch (err) {
+    try {
+      fs.symlinkSync(filePath, tempPath); // Hardlink başarısızsa Symlink dene (Linux'ta çalışır)
+      usePath = tempPath;
+    } catch (err2) {
+      // İkisi de başarısız olursa orijinal yolu kullan
+    }
+  }
+
+  const fileUrl = pathToFileURL(usePath).href;
   
   const song = new Song({
-    id: filePath,
-    name: fileName,
+    id: filePath, // Orijinal yolu tut
+    name: fileName, // Orijinal adı göster
     url: fileUrl,
     source: "file",
     playFromSource: true,
