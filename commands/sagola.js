@@ -83,18 +83,12 @@ function createLocalSong(filePath, interaction) {
     id: filePath,
     name: fileName,
     url: filePath,
-    streamURL: filePath,
     source: "file",
+    playFromSource: true,
   }, { member: interaction.member, metadata: { interaction } });
   
-  // HACK: Bypass "There is no plugin supporting this song" error
-  // Ve SpotifyPlugin'in şarkı isimlerini YouTube'da aratmasını engellemek için
-  // sahte (dummy) bir eklenti nesnesi atıyoruz. getStreamURL metodu olmadığı için
-  // DisTube doğrudan streamURL'i (yerel dosya yolunu) okuyacak.
-  song.plugin = { 
-    type: "extractor", 
-    name: "LocalFilePlugin" 
-  };
+  // DisTube'un eklenti aramasını atlamak için doğrudan stream URL'ini dosya yolu olarak ayarlıyoruz
+  song.stream.url = filePath;
   
   return song;
 }
