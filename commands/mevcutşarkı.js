@@ -26,6 +26,9 @@ module.exports = {
       const progress = createProgressBar(currentTime, duration);
 
       const stationName = song.metadata?.stationName;
+      
+      const isWebUrl = song.url && (song.url.startsWith("http://") || song.url.startsWith("https://"));
+      const songDisplay = isWebUrl ? `[${song.name}](${song.url})` : `**${song.name}**`;
 
       const embed = new EmbedBuilder()
         .setColor(stationName ? "#FF0000" : "#00FF00")
@@ -35,7 +38,7 @@ module.exports = {
             : `${emojis.play} Şu Anda Çalıyor`,
         )
         .setDescription(
-          stationName ? `**${stationName}**` : `[${song.name}](${song.url})`,
+          stationName ? `**${stationName}**` : songDisplay,
         )
         .addFields(
           {

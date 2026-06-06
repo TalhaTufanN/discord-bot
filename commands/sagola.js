@@ -88,11 +88,13 @@ function createLocalSong(filePath, interaction) {
   }, { member: interaction.member, metadata: { interaction } });
   
   // HACK: Bypass "There is no plugin supporting this song" error
-  if (interaction.client.distube.plugins && interaction.client.distube.plugins.length > 0) {
-    song.plugin = interaction.client.distube.plugins[0];
-  } else if (interaction.client.distube.extractorPlugins && interaction.client.distube.extractorPlugins.length > 0) {
-    song.plugin = interaction.client.distube.extractorPlugins[0];
-  }
+  // Ve SpotifyPlugin'in şarkı isimlerini YouTube'da aratmasını engellemek için
+  // sahte (dummy) bir eklenti nesnesi atıyoruz. getStreamURL metodu olmadığı için
+  // DisTube doğrudan streamURL'i (yerel dosya yolunu) okuyacak.
+  song.plugin = { 
+    type: "extractor", 
+    name: "LocalFilePlugin" 
+  };
   
   return song;
 }

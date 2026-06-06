@@ -88,6 +88,14 @@ exports.warningEmbed = (message) => {
   });
 };
 
+// Yardımcı fonksiyon: Yerel dosyaların bağlantılarını gizler
+function formatSongLink(song) {
+  if (song.url && (song.url.startsWith("http://") || song.url.startsWith("https://"))) {
+    return `[${song.name}](${song.url})`;
+  }
+  return `**${song.name}**`;
+}
+
 /**
  * Create a queue embed
  * @param {Queue} queue - DisTube queue
@@ -105,7 +113,7 @@ exports.queueEmbed = (queue) => {
     queueString = 'Kuyrukta şarkı yok';
   } else {
     queueString = displayedSongs.map((song, index) => 
-      `**${index + 1}.** [${song.name}](${song.url}) - \`${song.formattedDuration}\` - İsteyen: ${song.user}`
+      `**${index + 1}.** ${formatSongLink(song)} - \`${song.formattedDuration}\` - İsteyen: ${song.user}`
     ).join('\n');
     
     // Add message if there are more songs
@@ -117,7 +125,7 @@ exports.queueEmbed = (queue) => {
   // Create embed
   return exports.createEmbed({
     title: `${emojis.queue} Müzik Kuyruğu`,
-    description: `**Şu Anda Çalıyor:**\n[${currentSong.name}](${currentSong.url}) - \`${currentSong.formattedDuration}\` - İsteyen: ${currentSong.user}\n\n**Sırada:**\n${queueString}`,
+    description: `**Şu Anda Çalıyor:**\n${formatSongLink(currentSong)} - \`${currentSong.formattedDuration}\` - İsteyen: ${currentSong.user}\n\n**Sırada:**\n${queueString}`,
     color: '#9B59B6',
     fields: [
       { name: 'Toplam Şarkı', value: `${songs.length}`, inline: true },
@@ -126,4 +134,4 @@ exports.queueEmbed = (queue) => {
     ],
     footer: { text: `Döngü: ${queue.repeatMode ? (queue.repeatMode === 2 ? 'Kuyruk' : 'Şarkı') : 'Kapalı'} | Otomatik Oynatma: ${queue.autoplay ? 'Açık' : 'Kapalı'}` }
   });
-}; 
+};  
