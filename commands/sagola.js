@@ -76,19 +76,23 @@ function getAllAudioFiles(dirPath, arrayOfFiles) {
   return arrayOfFiles;
 }
 
+const { pathToFileURL } = require("url");
+
 // Yerel dosyalar için özel DisTube Song nesnesi oluşturan fonksiyon
 function createLocalSong(filePath, interaction) {
   const fileName = path.basename(filePath, path.extname(filePath));
+  const fileUrl = pathToFileURL(filePath).href;
+  
   const song = new Song({
     id: filePath,
     name: fileName,
-    url: filePath,
+    url: fileUrl,
     source: "file",
     playFromSource: true,
   }, { member: interaction.member, metadata: { interaction } });
   
   // DisTube'un eklenti aramasını atlamak için doğrudan stream URL'ini dosya yolu olarak ayarlıyoruz
-  song.stream.url = filePath;
+  song.stream.url = fileUrl;
   
   return song;
 }
