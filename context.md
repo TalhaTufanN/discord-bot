@@ -30,7 +30,13 @@ Datacenter/VPS IP'sinden YouTube googlevideo çoğu client'a **403** veriyordu (
 VPS'te ölçülen ses başlangıcı: **yt-dlp sıralı ~10-12 sn → plugin sırası + paralel prefetch düzeltmesiyle ~4-5 sn → Lavalink ~988 ms.**
 `loadtracks`: tek video 236-797 ms, arama 970 ms, 120 parçalık playlist 3.9 sn. Lavalink logunda **hiç 403/exception yok** — asıl belirsizlik buydu, tek kullanımlık bir test botuyla gerçek ses akıtılarak doğrulandı.
 
-Lavalink `application.yml`: youtube-source plugin 1.18.1, `clients: [MUSIC, ANDROID_VR, WEB, WEBEMBEDDED]` (ANDROID_VR PO-token istemiyor — datacenter IP'de kritik). Dahili `youtube:` kaynağı **kapalı** olmalı, plugin devralıyor. `http: true` (radyo), `local: true` (Sagopa).
+Lavalink `application.yml`: youtube-source plugin 1.18.1, `clients: [MUSIC, ANDROID_VR, WEB, WEBEMBEDDED]` (ANDROID_VR PO-token istemiyor — datacenter IP'de kritik). Dahili `youtube:` kaynağı **kapalı** olmalı, plugin devralıyor. `http: true` (radyo), `local: true` (Sagopa). Referans kopya repoda: `lavalink/application.yml.example` (secret'lar `${ENV}` placeholder).
+
+## Spotify (LavaSrc)
+Spotify **sadece metadata kaynağı**; ses YouTube'dan geliyor ("mirror"). LavaSrc 4.8.3, `providers: ["ytsearch:\"%ISRC%\"", "ytsearch:%QUERY%"]` — önce ISRC ile birebir kayıt eşleşmesi, bulunamazsa metin araması.
+- **`plugins.lavasrc.sources.youtube` KAPALI kalmalı** — açılırsa `dev.lavalink.youtube` (youtube-source) plugin'ini gasp eder ve datacenter IP'de çalışan ANDROID_VR/MUSIC client zinciri devre dışı kalır.
+- Kimlik bilgisi `.env`'de (`SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`), `application.yml` `${SPOTIFY_CLIENT_ID:}` ile okuyor; `/root/lavalink/ecosystem.config.js` `.env`'i yükleyip pm2 env'ine koyuyor. Secret ne yml'de ne git'te. Boş bırakılırsa Lavalink yine açılır, sadece Spotify çalışmaz.
+- **Kısıtlama (Spotify'ın 2024-11-27 duyurusu):** 27 Kasım 2024 sonrası açılan app'ler **algoritmik + Spotify'ın kendi editoryal playlist'lerine** (Today's Top Hits, RapCaviar, Discover Weekly) erişemiyor → 404. Şarkı, albüm ve **kullanıcı playlist'leri** çalışıyor. İstenirse `spotify.spDc` (hesap çerezi) eklenerek editoryal playlist'ler de açılır. Rate limit 30 sn'lik kayan pencere — bu ölçekte konu değil. "25 kullanıcı" sınırı sadece kullanıcı-girişli akışlar için, client credentials'ı bağlamıyor.
 
 ## Lavalink'e özgü tuzaklar (hepsi sessiz hata üretir)
 1. **Süre birimi**: Lavalink **milisaniye**, DisTube saniyeydi. `track.info.duration`, `player.position`.
@@ -46,7 +52,7 @@ Lavalink `application.yml`: youtube-source plugin 1.18.1, `clients: [MUSIC, ANDR
 `/sagola` (rastgele) çalınca guild ayarı `sagopaAutoplay` (varsayılan açık) ise sürekli mod aktifleşir → şarkı bitince `queueEnd` handler'ı otomatik yeni rastgele Sagopa ekler (aktif guild'ler `client.sagopaGuilds` Map'inde: `{ member, requester }`). `/sagola surekli:Aç|Kapat` ile kalıcı toggle. `/durdur`/terk/kanal-boş → mod kapanır. **Skip:** sürekli mod aktif ve sırada şarkı yoksa durdurmak yerine yeni rastgele Sagopa'ya geçer (`utils/sagopa.js` → `skipToRandomSagopa`).
 
 ## Kapsam dışı / kaldırıldı
-- **Spotify**: `SpotifyPlugin` gitti. Lavalink'te karşılığı **LavaSrc** plugin'i + Spotify client id/secret. Şimdilik yok.
+- **Spotify**: LavaSrc ile geri geldi — yukarıdaki "Spotify (LavaSrc)" bölümüne bak. Editoryal/algoritmik playlist'ler hariç.
 - **`queue.autoplay`** ve **`queue.filters`**: Lavalink'te karşılıksız → `kuyruk`/`mevcutşarkı` embed'lerinden kaldırıldı.
 - yt-dlp, cookies.txt, flat playlist override, stream prefetch cache, ses kodlama bağımlılıkları (`@discordjs/voice`, opus, sodium, ffmpeg-static) — hepsi Lavalink'in çözdüğü sorunlar içindi. 16 bağımlılık → 5.
 

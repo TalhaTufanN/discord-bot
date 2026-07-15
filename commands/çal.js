@@ -69,12 +69,29 @@ module.exports = {
       const res = await player.search({ query }, interaction.user);
       timer.mark("Lavalink Arama");
 
-      if (!res || !res.tracks || res.tracks.length === 0) {
+      // Lavalink cozemedigi kaynagi loadType:"error" ile bildiriyor (or. Spotify
+      // kimlik bilgisi eksik/yanlis). Bunu "sonuc bulunamadi" diye yutarsak
+      // gercek sebep gizlenir.
+      if (res?.loadType === "error") {
+        console.error(
+          `[Çal] Lavalink hatasi (${query}):`,
+          res.exception?.message,
+          res.exception?.cause || "",
+        );
         return await interaction.editReply({
           embeds: [
             errorEmbed(
-              `${emojis.error} YouTube'da "${query}" için sonuç bulunamadı.`,
+              `${emojis.error} Bu bağlantı çözülemedi: ${res.exception?.message || "bilinmeyen hata"}`,
             ),
+          ],
+        });
+      }
+
+      if (!res || !res.tracks || res.tracks.length === 0) {
+        // Artik sadece YouTube degil (Spotify linkleri de LavaSrc ile geliyor)
+        return await interaction.editReply({
+          embeds: [
+            errorEmbed(`${emojis.error} \`${query}\` için sonuç bulunamadı.`),
           ],
         });
       }
