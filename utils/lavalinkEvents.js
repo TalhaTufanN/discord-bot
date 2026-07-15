@@ -23,6 +23,9 @@ const { trackDisplay, formatDuration, isRadioTrack, isSagopaAutoTrack, isLocalTr
 // Guild basina radyo metadata guncelleme araligi
 const radioUpdateIntervals = new Map();
 
+// Guild basina son hata mesaji zamani — hata seli olunca kanali bogmamak icin
+const errorNotifiedAt = new Map();
+
 const clearRadioInterval = (guildId) => {
   if (radioUpdateIntervals.has(guildId)) {
     clearInterval(radioUpdateIntervals.get(guildId));
@@ -273,9 +276,21 @@ exports.handleLavalinkEvents = (client) => {
   });
 
   // --- Hata (eski: distube.on("error")) ---
+  // Ucuncu argumanin sekli SABIT DEGIL: Lavalink olayindan gelirse
+  // { exception: { message } }, resolve hatasindan gelirse duz bir Error
+  // (dist/index.cjs:1185, :5704). Ikisini de okumazsak elimizde sadece
+  // "trackError" kaliyor ve gercek sebep gizleniyor.
+  const problemDetail = (payload, label) =>
+    payload?.exception?.message ||
+    payload?.message ||
+    payload?.error?.message ||
+    payload?.error ||
+    label;
+
   const onTrackProblem = (label) => async (player, track, payload) => {
-    const detail = payload?.exception?.message || payload?.error || label;
-    console.error(`[Lavalink ${label}]`, detail);
+    const detail = problemDetail(payload, label);
+    const name = track?.info?.title ? `"${track.info.title}"` : "(bilinmeyen parça)";
+    console.error(`[Lavalink ${label}] ${name}:`, detail);
 
     // Radyo hatasiysa kullaniciya gosterme; asagidaki retry mantigi toparlayacak
     if (player.get("lastRadio")) {
@@ -285,13 +300,21 @@ exports.handleLavalinkEvents = (client) => {
 
     const channel = getTextChannel(client, player);
     if (!channel) return;
+
+    // Bir albumun her parcasi patlarsa 50 ayri hata mesaji atmayalim: guild
+    // basina 10 sn'de en fazla bir mesaj, gerisi sadece log.
+    const now = Date.now();
+    const lastAt = errorNotifiedAt.get(player.guildId) || 0;
+    if (now - lastAt < 10000) return;
+    errorNotifiedAt.set(player.guildId, now);
+
     await channel
       .send({
         embeds: [
           new EmbedBuilder()
             .setColor("#FF0000")
             .setTitle(`${emojis.error} Hata`)
-            .setDescription(`Bir hata oluştu: ${String(detail).substring(0, 2000)}`),
+            .setDescription(`${name} çalınamadı: ${String(detail).substring(0, 1500)}`),
         ],
       })
       .catch(() => {});

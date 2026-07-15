@@ -204,6 +204,18 @@ async function resolveSpotify(input) {
  * Spotify metadata -> lavalink-client UnresolvedTrack.
  * Cozum (YouTube aramasi) sirasi gelince yapiliyor; boylece 50 parcalik album
  * aninda kuyruga giriyor, bot beklemiyor.
+ *
+ * DIKKAT — info'ya "uri" ve "sourceName" KOYMA:
+ * lavalink-client'in getClosestTrack'i (dist/index.cjs:1221-1230) aramayi
+ * bu alanlardan kuruyor:
+ *   - info.uri varsa ONCE onu Lavalink'e soruyor -> Spotify URL'i verirsek
+ *     Spotify kaynagi arar; bizde LavaSrc yok, her parca trackError olur.
+ *   - info.sourceName'i arama kaynagi olarak geciyor -> "spotify" dersek
+ *     yine ayni sey.
+ * Bos birakinca: source undefined -> defaultSearchPlatform ("ytsearch") ve
+ * sorgu "<baslik> by <sanatci>" olarak kuruluyor. Istedigimiz tam da bu.
+ * Cozulen YouTube parcasina bizim baslik/sanatci/gorsel bilgimiz zaten
+ * applyUnresolvedData ile geri isleniyor.
  */
 function toUnresolvedTracks(client, items, requester) {
   return items.map((it) =>
@@ -213,9 +225,6 @@ function toUnresolvedTracks(client, items, requester) {
         author: it.author,
         duration: it.durationMs,
         artworkUrl: it.artworkUrl,
-        uri: it.uri,
-        isrc: it.isrc,
-        sourceName: "spotify",
       },
       requester,
     ),
