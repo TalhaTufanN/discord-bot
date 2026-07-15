@@ -50,7 +50,8 @@ module.exports = {
 
       // Surekli mod yoksa ve sirada sarki yoksa: calmayi sonlandir
       player.set("intentionalStop", true);
-      await player.destroy();
+      // destroy() DEGIL: DisTube'un queue.stop()'u kanaldan cikmiyordu.
+      await player.stopPlaying(true, false);
       return interaction.reply({
         embeds: [infoEmbed(`${emojis.skip} Atlandı. Sırada şarkı kalmadı, çalma sonlandırıldı.`)]
       });

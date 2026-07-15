@@ -203,7 +203,8 @@ module.exports = {
                 // Kuyruk bitisinin BILEREK oldugunu queueEnd'e bildir; aksi halde
                 // radyo retry / surekli Sagopa mantigi devreye girer.
                 player.set("intentionalStop", true);
-                await player.destroy();
+                // destroy() DEGIL: DisTube'un queue.stop()'u kanaldan cikmiyordu.
+                await player.stopPlaying(true, false);
                 await interaction.reply({
                   embeds: [infoEmbed("Müzik durduruldu ve kuyruk temizlendi.")],
                   ephemeral: true,
@@ -211,56 +212,95 @@ module.exports = {
                 break;
 
               case "music_previous": {
-                // Lavalink'te hazir bir "onceki" yok: gecmisten alip sirakinin
-                // basina koyup atliyoruz.
-                const prev = player.queue.previous?.[0];
+                // Discord'a ONCE cevap ver. Asagidaki skip() trackStart'i
+                // tetikliyor, trackStart da "Simdi Caliyor" mesajini silip
+                // yenisini atiyor — yani butonun uzerinde durdugu mesaj yok
+                // oluyor. Isten SONRA deferUpdate cagirinca 40060 aliyorduk.
+                try {
+                  await interaction.deferUpdate();
+                } catch (e) {}
+
+                // Lavalink'te hazir bir "onceki" yok. DisTube'un previous()'i
+                // iki is birden yapiyordu:
+                //   previousSongs.pop()  -> gecmisten TUKET
+                //   songs.unshift(song)  -> calani KAYBETMEDEN onune ekle
+                // Ikisi de sart:
+                //  - calani geri koymazsak kuyruktan duser
+                //    (1 -> gec -> 2 -> onceki -> 1 -> gec -> 3 olur, 2 atlanir)
+                //  - gecmisi tuketmezsek "onceki"ye tekrar basinca ILERI gidilir
+                const prev = await player.queue.shiftPrevious();
                 if (!prev) {
-                  await interaction.reply({
-                    embeds: [errorEmbed("Önceki şarkı bulunamadı!")],
-                    ephemeral: true,
-                  });
+                  await interaction
+                    .followUp({
+                      embeds: [errorEmbed("Önceki şarkı bulunamadı!")],
+                      ephemeral: true,
+                    })
+                    .catch(() => {});
                   break;
                 }
+                const cur = player.queue.current;
                 try {
+                  // Sira: [prev(calacak), cur, ...kalanlar]
+                  if (cur) await player.queue.add(cur, 0);
                   await player.queue.add(prev, 0);
                   await player.skip();
-                  await interaction.deferUpdate();
+
+                  // skip() calan parcayi previous'a itiyor (queueTrackEnd ->
+                  // previous.unshift). Geriye gittigimiz icin bunu istemiyoruz;
+                  // ama yalnizca gercekten o parcaysa geri al.
+                  if (cur && player.queue.previous?.[0]?.encoded === cur.encoded) {
+                    await player.queue.shiftPrevious();
+                  }
                 } catch (e) {
-                  await interaction.reply({
-                    embeds: [errorEmbed("Önceki şarkı bulunamadı!")],
-                    ephemeral: true,
-                  });
+                  console.error("[PREVIOUS] Hata:", e?.message || e);
+                  await interaction
+                    .followUp({
+                      embeds: [errorEmbed("Önceki şarkı çalınamadı!")],
+                      ephemeral: true,
+                    })
+                    .catch(() => {});
                 }
                 break;
               }
 
               case "music_skip": {
+                // music_previous ile ayni sebep: once cevapla, sonra calis.
+                try {
+                  await interaction.deferUpdate();
+                } catch (e) {}
+
                 // Sirada baska sarki yoksa ama surekli Sagopa modu aktifse
                 // durdurmak yerine yeni rastgele Sagopa'ya gec.
                 const endOrContinue = async () => {
-                  if (await skipToRandomSagopa(player, interaction.client)) {
-                    await interaction.deferUpdate();
-                  } else {
-                    player.set("intentionalStop", true);
-                    await player.destroy();
-                    await interaction.reply({
+                  if (await skipToRandomSagopa(player, interaction.client)) return;
+                  player.set("intentionalStop", true);
+                  // DisTube'un queue.stop()'u voice.stop()+remove() idi, yani
+                  // muzigi durdurup kuyrugu temizliyor ama kanaldan CIKMIYORDU.
+                  // destroy() cikarir; stopPlaying eski davranisin karsiligi.
+                  await player.stopPlaying(true, false);
+                  await interaction
+                    .followUp({
                       embeds: [
                         infoEmbed(
                           "Sırada şarkı olmadığı için müzik sonlandırıldı.",
                         ),
                       ],
                       ephemeral: true,
-                    });
-                  }
+                    })
+                    .catch(() => {});
                 };
 
                 // DisTube'da queue.songs calan sarkiyi da iceriyordu (>1 kontrolu);
                 // Lavalink'te queue.tracks SADECE siradakiler.
                 if (player.queue.tracks.length > 0) {
+                  // ONEMLI: skip()'in hatasi ile Discord'a cevap verme hatasi
+                  // AYRI seyler. Eskiden ikisi ayni catch'teydi: deferUpdate
+                  // patlayinca endOrContinue calisip botu kanaldan atiyordu —
+                  // halbuki sarki zaten basariyla gecilmisti.
                   try {
                     await player.skip();
-                    await interaction.deferUpdate();
                   } catch (e) {
+                    console.error("[SKIP] Hata:", e?.message || e);
                     await endOrContinue();
                   }
                 } else {

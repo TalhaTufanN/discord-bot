@@ -32,7 +32,9 @@ module.exports = {
       // Bilerek durduruldugunu isaretle: queueEnd bunu gorup radyo retry /
       // surekli Sagopa modunu devreye sokmayacak.
       player.set("intentionalStop", true);
-      await player.destroy();
+      // destroy() DEGIL: DisTube'un queue.stop()'u voice.stop()+remove() idi,
+      // yani muzigi durdurup kuyrugu temizliyor ama kanaldan CIKMIYORDU.
+      await player.stopPlaying(true, false);
       await interaction.reply({
         embeds: [successEmbed(`${emojis.stop} Müzik durduruldu ve kuyruk temizlendi!`)]
       });
