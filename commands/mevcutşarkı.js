@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require("@discordjs/builders");
 const { EmbedBuilder } = require("discord.js");
 const { errorEmbed } = require("../utils/embeds");
 const { emojis } = require("../config/emojis");
+const { formatDuration, trackDisplay, getRequester } = require("../utils/lavalink");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -9,10 +10,10 @@ module.exports = {
     .setDescription("Şu anda çalan şarkıyı göster"),
 
   async execute(interaction) {
-    const queue = interaction.client.distube.getQueue(interaction.guildId);
+    const player = interaction.client.lavalink.getPlayer(interaction.guildId);
 
     // Check if there's a queue
-    if (!queue || !queue.songs || queue.songs.length === 0) {
+    if (!player || !player.queue.current) {
       return interaction.reply({
         embeds: [errorEmbed(`${emojis.error} Şu anda çalan bir şey yok!`)],
         ephemeral: true,
@@ -20,15 +21,18 @@ module.exports = {
     }
 
     try {
-      const song = queue.songs[0];
-      const currentTime = queue.currentTime;
-      const duration = song.duration;
+      const song = player.queue.current;
+      const display = trackDisplay(song);
+      // Ikisi de MILISANIYE (DisTube'da saniyeydi) — createProgressBar ve
+      // formatDuration ayni birimi bekliyor.
+      const currentTime = player.position;
+      const duration = song.info.duration;
       const progress = createProgressBar(currentTime, duration);
 
-      const stationName = song.metadata?.stationName;
-      
-      const isWebUrl = song.url && (song.url.startsWith("http://") || song.url.startsWith("https://"));
-      const songDisplay = isWebUrl ? `[${song.name}](${song.url})` : `**${song.name}**`;
+      const stationName = song.userData?.stationName;
+
+      const isWebUrl = display.url && (display.url.startsWith("http://") || display.url.startsWith("https://"));
+      const songDisplay = isWebUrl ? `[${display.name}](${display.url})` : `**${display.name}**`;
 
       const embed = new EmbedBuilder()
         .setColor(stationName ? "#FF0000" : "#00FF00")
@@ -45,18 +49,19 @@ module.exports = {
             name: "Süre",
             value: stationName
               ? `\`🔴 CANLI\``
-              : `\`${formatTime(currentTime)} / ${song.formattedDuration}\``,
+              : `\`${formatDuration(currentTime)} / ${formatDuration(duration)}\``,
             inline: true,
           },
-          { name: "İsteyen", value: `${song.user}`, inline: true },
+          { name: "İsteyen", value: `${getRequester(song)}`, inline: true },
           {
             name: stationName ? "Durum" : "İlerleme",
             value: stationName ? `\`▶️ Oynatılıyor\`` : progress,
           },
         )
-        .setThumbnail(song.thumbnail)
+        .setThumbnail(display.thumbnail)
         .setFooter({
-          text: `Ses: ${queue.volume}% | Filtre: ${queue.filters.names.join(", ") || "Kapalı"}`,
+          // Not: Lavalink'te queue.filters.names karsiligi yok, Filtre alani kaldirildi.
+          text: `Ses: ${player.volume}%`,
         });
 
       await interaction.reply({ embeds: [embed] });
@@ -71,14 +76,17 @@ module.exports = {
 
 /**
  * Create a progress bar for the song
- * @param {number} currentTime - Current time in seconds
- * @param {number} duration - Total duration in seconds
+ * @param {number} currentTime - Current time in milliseconds
+ * @param {number} duration - Total duration in milliseconds
  * @returns {string} - Progress bar string
  */
 function createProgressBar(currentTime, duration) {
   const progressBarLength = 15;
-  const percentage = Math.round((currentTime / duration) * 100);
-  const progress = Math.round((currentTime / duration) * progressBarLength);
+  // Canli yayinda duration 0/anlamsiz olabiliyor -> NaN yerine bos cubuk
+  const ratio =
+    duration > 0 ? Math.min(Math.max(currentTime / duration, 0), 1) : 0;
+  const percentage = Math.round(ratio * 100);
+  const progress = Math.round(ratio * progressBarLength);
 
   let progressBar = "";
 
@@ -91,16 +99,4 @@ function createProgressBar(currentTime, duration) {
   }
 
   return `${emojis.time} \`${progressBar}\` ${percentage}%`;
-}
-
-/**
- * Format time in seconds to MM:SS
- * @param {number} seconds - Time in seconds
- * @returns {string} - Formatted time
- */
-function formatTime(seconds) {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-
-  return `${minutes}:${remainingSeconds < 10 ? "0" : ""}${remainingSeconds}`;
 }

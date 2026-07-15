@@ -12,33 +12,33 @@ module.exports = {
         .setRequired(true)
         .setMinValue(0)
         .setMaxValue(100)),
-  
+
   async execute(interaction) {
     const voiceChannel = interaction.member.voice.channel;
-    
+
     // Check if user is in a voice channel
     if (!voiceChannel) {
-      return interaction.reply({ 
-        embeds: [errorEmbed(`${emojis.error} Bu komutu kullanmak için bir ses kanalında olmalısınız!`)], 
-        ephemeral: true 
+      return interaction.reply({
+        embeds: [errorEmbed(`${emojis.error} Bu komutu kullanmak için bir ses kanalında olmalısınız!`)],
+        ephemeral: true
       });
     }
-    
-    const queue = interaction.client.distube.getQueue(interaction.guildId);
-    
+
+    const player = interaction.client.lavalink.getPlayer(interaction.guildId);
+
     // Check if there's a queue
-    if (!queue) {
-      return interaction.reply({ 
-        embeds: [errorEmbed(`${emojis.error} Şu anda çalan bir şey yok!`)], 
-        ephemeral: true 
+    if (!player) {
+      return interaction.reply({
+        embeds: [errorEmbed(`${emojis.error} Şu anda çalan bir şey yok!`)],
+        ephemeral: true
       });
     }
-    
+
     const volumePercentage = interaction.options.getInteger('percentage');
-    
+
     try {
-      queue.setVolume(volumePercentage);
-      
+      await player.setVolume(volumePercentage);
+
       // Choose appropriate emoji based on volume level
       let volumeEmoji = emojis.volume;
       if (volumePercentage === 0) {
@@ -46,15 +46,15 @@ module.exports = {
       } else if (volumePercentage < 50) {
         volumeEmoji = emojis.volume;
       }
-      
-      await interaction.reply({ 
+
+      await interaction.reply({
         embeds: [successEmbed(`${volumeEmoji} Ses seviyesi ayarlandı: **${volumePercentage}%**`)]
       });
     } catch (error) {
       console.error(error);
-      await interaction.reply({ 
+      await interaction.reply({
         embeds: [errorEmbed(`${emojis.error} Ses seviyesini değiştirirken hata oluştu: ${error.message}`)]
       });
     }
   },
-}; 
+};

@@ -9,11 +9,12 @@ const { errorEmbed, infoEmbed } = require("../utils/embeds");
 const { getSettings } = require("../utils/settings");
 const { emojis } = require("../config/emojis");
 const { skipToRandomSagopa } = require("../utils/sagopa");
+const { isRadioTrack } = require("../utils/lavalink");
 
 // Debounce timers for volume updates per guild
 const volumeUpdateTimers = new Map();
 
-const debounceVolumeUpdate = (interaction, queue) => {
+const debounceVolumeUpdate = (interaction, player) => {
   const guildId = interaction.guildId;
 
   // Clear previous timer
@@ -32,7 +33,7 @@ const debounceVolumeUpdate = (interaction, queue) => {
           const updatedEmbed = EmbedBuilder.from(msg.embeds[0]);
           const fields = updatedEmbed.data.fields;
           const sesField = fields?.find((f) => f.name === "Ses");
-          if (sesField) sesField.value = `\`%${queue.volume}\``;
+          if (sesField) sesField.value = `\`%${player.volume}\``;
           await msg.edit({ embeds: [updatedEmbed] });
         }
       } catch (e) {}
@@ -88,8 +89,7 @@ module.exports = {
             });
             break;
 
-          // Music Control Buttons
-          // Music Control Buttons requiring Queue
+          // Music Control Buttons requiring an active player
           case "music_pause_resume":
           case "music_stop":
           case "music_skip":
@@ -98,11 +98,11 @@ module.exports = {
           case "music_vol_up":
           case "music_shuffle":
           case "music_loop": {
-            const queue = interaction.client.distube.getQueue(
+            const player = interaction.client.lavalink.getPlayer(
               interaction.guildId,
             );
 
-            if (!queue) {
+            if (!player || !player.queue.current) {
               return interaction.reply({
                 embeds: [errorEmbed("Şu anda çalan bir müzik yok!")],
                 ephemeral: true,
@@ -129,10 +129,9 @@ module.exports = {
                   console.error("[PAUSE/RESUME] Defer failed:", e.message);
                 }
 
-                const song = queue.songs[0];
-                const isRadio = song.metadata && song.metadata.stationName;
+                const isRadio = isRadioTrack(player.queue.current);
                 console.log(
-                  `[PAUSE/RESUME] Processing. Current paused: ${queue.paused}, Radio: ${!!isRadio}`,
+                  `[PAUSE/RESUME] Processing. Current paused: ${player.paused}, Radio: ${isRadio}`,
                 );
 
                 // Find the pause/resume button in any row
@@ -155,13 +154,13 @@ module.exports = {
                   });
                 }
 
-                if (queue.paused) {
-                  queue.resume();
+                if (player.paused) {
+                  await player.resume();
                   pauseButton.setLabel(isRadio ? "Durdur" : "Duraklat");
                   pauseButton.setEmoji("<:pause:1472909990888214621>");
                   pauseButton.setStyle(ButtonStyle.Secondary);
                 } else {
-                  queue.pause();
+                  await player.pause();
                   pauseButton.setLabel(isRadio ? "Oynat" : "Devam Et");
                   pauseButton.setEmoji("▶️");
                   pauseButton.setStyle(ButtonStyle.Secondary);
@@ -177,37 +176,54 @@ module.exports = {
               }
 
               case "music_shuffle":
-                queue.shuffle();
+                await player.queue.shuffle();
                 await interaction.reply({
                   embeds: [infoEmbed("Kuyruk karıştırıldı.")],
                   ephemeral: true,
                 });
                 break;
 
-              case "music_loop":
-                const mode = queue.repeatMode === 2 ? 0 : 2; // Toggle between Queue (2) and Off (0) for simplicity on button
-                queue.setRepeatMode(mode);
+              case "music_loop": {
+                // Lavalink'te repeat modu STRING ("off"/"track"/"queue"), DisTube'daki
+                // 0/1/2 degil. Buton eskiden oldugu gibi Kuyruk <-> Kapali arasinda gecer.
+                const next = player.repeatMode === "queue" ? "off" : "queue";
+                await player.setRepeatMode(next);
                 await interaction.reply({
                   embeds: [
                     infoEmbed(
-                      `Döngü modu: ${mode === 2 ? "Kuyruk" : "Kapalı"}`,
+                      `Döngü modu: ${next === "queue" ? "Kuyruk" : "Kapalı"}`,
                     ),
                   ],
                   ephemeral: true,
                 });
                 break;
+              }
 
               case "music_stop":
-                queue.stop();
+                // Kuyruk bitisinin BILEREK oldugunu queueEnd'e bildir; aksi halde
+                // radyo retry / surekli Sagopa mantigi devreye girer.
+                player.set("intentionalStop", true);
+                await player.destroy();
                 await interaction.reply({
                   embeds: [infoEmbed("Müzik durduruldu ve kuyruk temizlendi.")],
                   ephemeral: true,
                 });
                 break;
 
-              case "music_previous":
+              case "music_previous": {
+                // Lavalink'te hazir bir "onceki" yok: gecmisten alip sirakinin
+                // basina koyup atliyoruz.
+                const prev = player.queue.previous?.[0];
+                if (!prev) {
+                  await interaction.reply({
+                    embeds: [errorEmbed("Önceki şarkı bulunamadı!")],
+                    ephemeral: true,
+                  });
+                  break;
+                }
                 try {
-                  await queue.previous();
+                  await player.queue.add(prev, 0);
+                  await player.skip();
                   await interaction.deferUpdate();
                 } catch (e) {
                   await interaction.reply({
@@ -216,15 +232,17 @@ module.exports = {
                   });
                 }
                 break;
+              }
 
               case "music_skip": {
                 // Sirada baska sarki yoksa ama surekli Sagopa modu aktifse
                 // durdurmak yerine yeni rastgele Sagopa'ya gec.
                 const endOrContinue = async () => {
-                  if (await skipToRandomSagopa(queue, interaction.client)) {
+                  if (await skipToRandomSagopa(player, interaction.client)) {
                     await interaction.deferUpdate();
                   } else {
-                    queue.stop();
+                    player.set("intentionalStop", true);
+                    await player.destroy();
                     await interaction.reply({
                       embeds: [
                         infoEmbed(
@@ -236,9 +254,11 @@ module.exports = {
                   }
                 };
 
-                if (queue.songs.length > 1 || queue.autoplay) {
+                // DisTube'da queue.songs calan sarkiyi da iceriyordu (>1 kontrolu);
+                // Lavalink'te queue.tracks SADECE siradakiler.
+                if (player.queue.tracks.length > 0) {
                   try {
-                    await queue.skip();
+                    await player.skip();
                     await interaction.deferUpdate();
                   } catch (e) {
                     await endOrContinue();
@@ -249,48 +269,52 @@ module.exports = {
                 break;
               }
 
-              case "music_vol_down":
-                const newVolDown = Math.max(0, queue.volume - 10);
-                queue.setVolume(newVolDown);
+              case "music_vol_down": {
+                const newVolDown = Math.max(0, player.volume - 10);
+                await player.setVolume(newVolDown);
                 try {
                   await interaction.deferUpdate();
                 } catch (e) {}
-                debounceVolumeUpdate(interaction, queue);
+                debounceVolumeUpdate(interaction, player);
                 break;
+              }
 
-              case "music_vol_up":
-                const newVolUp = Math.min(100, queue.volume + 10);
-                queue.setVolume(newVolUp);
+              case "music_vol_up": {
+                const newVolUp = Math.min(100, player.volume + 10);
+                await player.setVolume(newVolUp);
                 try {
                   await interaction.deferUpdate();
                 } catch (e) {}
-                debounceVolumeUpdate(interaction, queue);
+                debounceVolumeUpdate(interaction, player);
                 break;
+              }
             }
             break;
           }
 
-          // Leave Button logic (Does NOT require active queue, just voice connection)
+          // Leave Button logic (Does NOT require an active queue, just a voice connection)
           case "music_leave": {
-            const distube = interaction.client.distube;
-            const botVoice = distube.voices.get(interaction.guildId);
+            const player = interaction.client.lavalink.getPlayer(
+              interaction.guildId,
+            );
             const memberVoice = interaction.member.voice.channel;
 
-            if (!botVoice) {
+            if (!player || !player.voiceChannelId) {
               return interaction.reply({
                 embeds: [errorEmbed("Bot zaten bir ses kanalında değil!")],
                 ephemeral: true,
               });
             }
 
-            if (!memberVoice || memberVoice.id !== botVoice.channelId) {
+            if (!memberVoice || memberVoice.id !== player.voiceChannelId) {
               return interaction.reply({
                 embeds: [errorEmbed("Bot ile aynı ses kanalında olmalısınız!")],
                 ephemeral: true,
               });
             }
 
-            distube.voices.leave(interaction.guildId);
+            player.set("intentionalStop", true);
+            await player.destroy();
             await interaction.reply({
               embeds: [infoEmbed("Kanaldan ayrıldım. 👋")],
               ephemeral: true,

@@ -22,10 +22,10 @@ module.exports = {
       });
     }
 
-    const queue = interaction.client.distube.getQueue(interaction.guildId);
+    const player = interaction.client.lavalink.getPlayer(interaction.guildId);
 
     // Check if there's a queue
-    if (!queue) {
+    if (!player) {
       return interaction.reply({
         embeds: [errorEmbed(`${emojis.error} Şu anda çalan bir şey yok!`)],
         ephemeral: true,
@@ -33,17 +33,17 @@ module.exports = {
     }
 
     try {
-      if (queue.paused) {
+      if (player.paused) {
         return interaction.reply({
           embeds: [errorEmbed(`${emojis.warning} Müzik zaten duraklatılmış!`)],
           ephemeral: true,
         });
       }
 
-      const song = queue.songs[0];
-      const isRadio = song.metadata?.stationName;
+      const song = player.queue.current;
+      const isRadio = song?.userData?.stationName;
 
-      queue.pause();
+      await player.pause();
 
       const embed = successEmbed(`${emojis.pause} Müzik duraklatıldı!`);
       if (isRadio) {

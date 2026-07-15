@@ -6,6 +6,12 @@
 
 const { EmbedBuilder } = require('discord.js');
 const { emojis } = require('../config/emojis');
+const {
+  trackDisplay,
+  formatDuration,
+  formatQueueDuration,
+  getRequester,
+} = require('./lavalink');
 
 /**
  * Create a standard embed with consistent styling
@@ -89,49 +95,61 @@ exports.warningEmbed = (message) => {
 };
 
 // Yardımcı fonksiyon: Yerel dosyaların bağlantılarını gizler
-function formatSongLink(song) {
-  if (song.url && (song.url.startsWith("http://") || song.url.startsWith("https://"))) {
-    return `[${song.name}](${song.url})`;
+function formatTrackLink(track) {
+  const d = trackDisplay(track);
+  if (d.url && (d.url.startsWith("http://") || d.url.startsWith("https://"))) {
+    return `[${d.name}](${d.url})`;
   }
-  return `**${song.name}**`;
+  return `**${d.name}**`;
 }
 
+const REPEAT_LABEL = { queue: "Kuyruk", track: "Şarkı", off: "Kapalı" };
+
 /**
- * Create a queue embed
- * @param {Queue} queue - DisTube queue
- * @returns {EmbedBuilder} - Queue embed
+ * Kuyruk embed'i.
+ *
+ * DisTube'da songs[0] CALAN sarkiydi, sirakiler songs.slice(1). Lavalink'te
+ * calan sarki (queue.current) diziden AYRI, queue.tracks tamami sirada olanlar
+ * — bu yuzden buradaki tum indis/uzunluk hesabi DisTube surumune gore kaydi.
+ * @param {import("lavalink-client").Player} player
  */
-exports.queueEmbed = (queue) => {
-  const songs = queue.songs;
-  const currentSong = songs[0];
-  
-  // Format queue songs
+exports.queueEmbed = (player) => {
+  const current = player.queue.current;
+  const upcoming = player.queue.tracks;
+
   let queueString = '';
-  const displayedSongs = songs.slice(1, 11); // Display up to 10 songs
-  
-  if (displayedSongs.length === 0) {
+  const displayed = upcoming.slice(0, 10);
+
+  if (displayed.length === 0) {
     queueString = 'Kuyrukta şarkı yok';
   } else {
-    queueString = displayedSongs.map((song, index) => 
-      `**${index + 1}.** ${formatSongLink(song)} - \`${song.formattedDuration}\` - İsteyen: ${song.user}`
+    queueString = displayed.map((track, index) =>
+      `**${index + 1}.** ${formatTrackLink(track)} - \`${formatDuration(track.info.duration)}\` - İsteyen: ${getRequester(track)}`
     ).join('\n');
-    
-    // Add message if there are more songs
-    if (songs.length > 11) {
-      queueString += `\n\n*...ve ${songs.length - 11} daha fazla şarkı*`;
+
+    if (upcoming.length > 10) {
+      queueString += `\n\n*...ve ${upcoming.length - 10} daha fazla şarkı*`;
     }
   }
-  
-  // Create embed
+
+  const currentLine = current
+    ? `${formatTrackLink(current)} - \`${trackDisplay(current).duration}\` - İsteyen: ${getRequester(current)}`
+    : 'Şu anda bir şey çalmıyor';
+
+  // Toplam sure: calan sarki + siradakiler
+  const totalDuration = formatQueueDuration(current ? [current, ...upcoming] : upcoming);
+
+  // Not: DisTube'un "Otomatik Oynatma" (queue.autoplay) ozelligi Lavalink'te
+  // yok, o yuzden footer'dan kaldirildi.
   return exports.createEmbed({
     title: `${emojis.queue} Müzik Kuyruğu`,
-    description: `**Şu Anda Çalıyor:**\n${formatSongLink(currentSong)} - \`${currentSong.formattedDuration}\` - İsteyen: ${currentSong.user}\n\n**Sırada:**\n${queueString}`,
+    description: `**Şu Anda Çalıyor:**\n${currentLine}\n\n**Sırada:**\n${queueString}`,
     color: '#9B59B6',
     fields: [
-      { name: 'Toplam Şarkı', value: `${songs.length}`, inline: true },
-      { name: 'Toplam Süre', value: `${queue.formattedDuration}`, inline: true },
-      { name: 'Ses', value: `${queue.volume}%`, inline: true }
+      { name: 'Toplam Şarkı', value: `${upcoming.length + (current ? 1 : 0)}`, inline: true },
+      { name: 'Toplam Süre', value: `${totalDuration}`, inline: true },
+      { name: 'Ses', value: `${player.volume}%`, inline: true }
     ],
-    footer: { text: `Döngü: ${queue.repeatMode ? (queue.repeatMode === 2 ? 'Kuyruk' : 'Şarkı') : 'Kapalı'} | Otomatik Oynatma: ${queue.autoplay ? 'Açık' : 'Kapalı'}` }
+    footer: { text: `Döngü: ${REPEAT_LABEL[player.repeatMode] || 'Kapalı'}` }
   });
 };  

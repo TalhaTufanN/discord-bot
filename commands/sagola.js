@@ -5,11 +5,16 @@ const fs = require("fs");
 const path = require("path");
 const PerformanceTimer = require("../utils/timer");
 const { getSettings, setSettings } = require("../utils/settings");
+const { getOrCreatePlayer } = require("../utils/lavalink");
+const {
+  announceAddedTrack,
+  announceAddedPlaylist,
+} = require("../utils/lavalinkEvents");
 const {
   getMusicPath,
   getAllAudioFiles,
-  createLocalSong,
-  getRandomSagopaSong,
+  resolveLocalTrack,
+  getRandomSagopaTrack,
 } = require("../utils/sagopa");
 
 // Autocomplete cache
@@ -196,23 +201,64 @@ module.exports = {
 
       // Oynatmadan ONCE kuyruk durumu: zaten calan bir sey varsa yeni sarki
       // hemen calmaz, kuyruga eklenir. Mesaji buna gore ayarlariz.
-      const existingQueue = interaction.client.distube.getQueue(
+      // DIKKAT: Lavalink'te CALAN parca queue.tracks icinde DEGIL (queue.current);
+      // sadece tracks.length'e bakarsak tek sarki calarken willQueue yanlislikla
+      // false cikar ve komutun yaniti hicbir sey birakmadan silinir.
+      const existingPlayer = interaction.client.lavalink.getPlayer(
         interaction.guildId,
       );
-      const willQueue = !!(existingQueue && existingQueue.songs.length > 0);
+      const willQueue = !!(
+        existingPlayer &&
+        (existingPlayer.queue.current || existingPlayer.queue.tracks.length > 0)
+      );
 
       // Rastgele + ayar acik => surekli mod
       const isRandom = query === "rastgele";
       const continuous = isRandom && isAutoplayEnabled(interaction.guildId);
 
+      // Player'i ancak calacak bir dosya bulduktan sonra olustur: DisTube
+      // surumunde de "bulunamadi" durumlarinda bot kanala hic girmiyordu.
+      let player = null;
+      const ensurePlayer = async () => {
+        if (!player) {
+          player = await getOrCreatePlayer(interaction.client, {
+            guildId: interaction.guildId,
+            voiceChannelId: voiceChannel.id,
+            textChannelId: interaction.channelId,
+          });
+        }
+        return player;
+      };
+
+      // Kuyruga ekle + calmiyorsa baslat. announceAdded* zaten hemen calacak
+      // parca icin kendiliginden sessiz kaliyor (utils/lavalinkEvents.js), o
+      // yuzden burada ayrica willQueue kontrolu yapmiyoruz — kural tek yerde.
+      const enqueue = async (tracks, playlist = null) => {
+        await player.queue.add(tracks);
+        if (playlist) {
+          await announceAddedPlaylist(
+            interaction.client,
+            player,
+            tracks,
+            playlist,
+          );
+        } else {
+          await announceAddedTrack(interaction.client, player, tracks[0]);
+        }
+        if (!player.playing) await player.play();
+      };
+
       // Oynatma sonrasi tek noktadan yanit ver (tekrar mesajlari onler)
       const finishReply = (name, isAlbum = false) => {
         if (continuous) {
-          // Surekli modu bu guild icin aktiflestir
+          // Surekli modu bu guild icin aktiflestir.
+          // requester: queueEnd / skipToRandomSagopa yolu bunu okuyor
+          // (utils/sagopa.js), member: eski cagiranlar icin duruyor.
           interaction.client.sagopaGuilds =
             interaction.client.sagopaGuilds || new Map();
           interaction.client.sagopaGuilds.set(interaction.guildId, {
             member: interaction.member,
+            requester: interaction.user,
           });
           return interaction.editReply({
             embeds: [
@@ -223,8 +269,8 @@ module.exports = {
           });
         }
         if (willQueue) {
-          // DisTube'un "Kuyruğa Eklendi"/"Çalma Listesi Eklendi" embed'i zaten
-          // bilgi veriyor; komutun kendi yanitini silip tekrari onle.
+          // "Kuyruğa Eklendi"/"Çalma Listesi Eklendi" embed'i zaten bilgi
+          // veriyor; komutun kendi yanitini silip tekrari onle.
           return interaction.deleteReply().catch(() => {});
         }
         return interaction.editReply({
@@ -251,28 +297,24 @@ module.exports = {
         }
 
         albumFiles.sort();
-        const songs = await Promise.all(
+        await ensurePlayer();
+
+        // Dosyalari tek tek cozmek yavas: hepsini ayni anda cozuyoruz.
+        // Promise.all sirayi koruyor -> kuyruk dosya sirasinda kaliyor.
+        const resolved = await Promise.all(
           albumFiles.map((filePath) =>
-            createLocalSong(filePath, {
-              member: interaction.member,
-              metadata: { interaction },
-            }),
+            resolveLocalTrack(player, filePath, interaction.user),
           ),
         );
+        const tracks = resolved.filter(Boolean);
 
-        const playlist = await interaction.client.distube.createCustomPlaylist(
-          songs,
-          {
-            member: interaction.member,
-            properties: { name: `Albüm: ${albumName}` },
-          },
-        );
+        if (tracks.length === 0) {
+          return interaction.editReply({
+            embeds: [errorEmbed(`${emojis.error} Albüm boş!`)],
+          });
+        }
 
-        await interaction.client.distube.play(voiceChannel, playlist, {
-          member: interaction.member,
-          textChannel: interaction.channel,
-          metadata: { interaction },
-        });
+        await enqueue(tracks, { name: `Albüm: ${albumName}` });
 
         return finishReply(albumName, true);
       }
@@ -281,16 +323,16 @@ module.exports = {
       if (query.startsWith("sarki:")) {
         const filePath = query.substring(6);
         if (fs.existsSync(filePath)) {
-          const songObj = await createLocalSong(filePath, {
-            member: interaction.member,
-            metadata: { interaction },
-          });
-          await interaction.client.distube.play(voiceChannel, songObj, {
-            member: interaction.member,
-            textChannel: interaction.channel,
-            metadata: { interaction },
-          });
-          return finishReply(songObj.name);
+          await ensurePlayer();
+          const track = await resolveLocalTrack(
+            player,
+            filePath,
+            interaction.user,
+          );
+          if (track) {
+            await enqueue([track]);
+            return finishReply(track.info.title);
+          }
         }
       }
 
@@ -302,38 +344,32 @@ module.exports = {
           (f) => path.basename(f, path.extname(f)) === songName,
         );
         if (matched) {
-          const songObj = await createLocalSong(matched, {
-            member: interaction.member,
-            metadata: { interaction },
-          });
-          await interaction.client.distube.play(voiceChannel, songObj, {
-            member: interaction.member,
-            textChannel: interaction.channel,
-            metadata: { interaction },
-          });
-          return finishReply(songObj.name);
+          await ensurePlayer();
+          const track = await resolveLocalTrack(
+            player,
+            matched,
+            interaction.user,
+          );
+          if (track) {
+            await enqueue([track]);
+            return finishReply(track.info.title);
+          }
         }
       }
 
       // 4. Durum: Rastgele
       if (isRandom) {
-        const songObj = await getRandomSagopaSong({
-          member: interaction.member,
-          metadata: { interaction },
-        });
-        if (!songObj) {
+        await ensurePlayer();
+        const track = await getRandomSagopaTrack(player, interaction.user);
+        if (!track) {
           return interaction.editReply({
             embeds: [errorEmbed(`${emojis.error} Dosya bulunamadı!`)],
           });
         }
 
-        await interaction.client.distube.play(voiceChannel, songObj, {
-          member: interaction.member,
-          textChannel: interaction.channel,
-          metadata: { interaction },
-        });
+        await enqueue([track]);
 
-        return finishReply(songObj.name);
+        return finishReply(track.info.title);
       }
 
       // 5. Durum: Düz metin arama
@@ -344,16 +380,16 @@ module.exports = {
       );
 
       if (matchedSongPaths.length > 0) {
-        const songObj = await createLocalSong(matchedSongPaths[0], {
-          member: interaction.member,
-          metadata: { interaction },
-        });
-        await interaction.client.distube.play(voiceChannel, songObj, {
-          member: interaction.member,
-          textChannel: interaction.channel,
-          metadata: { interaction },
-        });
-        return finishReply(songObj.name);
+        await ensurePlayer();
+        const track = await resolveLocalTrack(
+          player,
+          matchedSongPaths[0],
+          interaction.user,
+        );
+        if (track) {
+          await enqueue([track]);
+          return finishReply(track.info.title);
+        }
       }
 
       return interaction.editReply({

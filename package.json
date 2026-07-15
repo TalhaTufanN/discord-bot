@@ -1,7 +1,7 @@
 {
-  "name": "distube-music",
-  "version": "1.0.0",
-  "description": "A feature-rich Discord music bot using DisTube with slash commands",
+  "name": "raadiotr-lavalink",
+  "version": "2.0.0",
+  "description": "A feature-rich Discord music bot using Lavalink with slash commands",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -12,32 +12,17 @@
     "discord",
     "bot",
     "music",
-    "distube",
+    "lavalink",
     "discord.js"
   ],
   "author": "TalhaTufanN",
   "license": "UNLICENSED",
   "dependencies": {
     "@discordjs/builders": "^1.11.2",
-    "@discordjs/opus": "^0.10.0",
     "@discordjs/rest": "^2.5.0",
-    "@discordjs/voice": "^0.19.0",
-    "@distube/direct-link": "^1.0.1",
-    "@distube/soundcloud": "^2.0.4",
-    "@distube/spotify": "^2.0.2",
-    "@distube/youtube": "^1.0.4",
-    "@distube/yt-dlp": "^2.0.1",
-    "@distube/ytdl-core": "^4.16.12",
-    "@distube/ytsr": "^2.0.4",
-    "@noble/ciphers": "^2.1.1",
-    "@snazzah/davey": "^0.1.10",
     "discord.js": "^14.19.3",
-    "distube": "^5.2.3",
     "dotenv": "^16.5.0",
-    "ffmpeg-static": "^5.3.0",
-    "libsodium-wrappers": "^0.8.2",
-    "sodium-native": "^5.0.10",
-    "ytdl-core": "^4.11.5"
+    "lavalink-client": "^2.10.3"
   },
   "devDependencies": {
     "ssh2": "^1.17.0"

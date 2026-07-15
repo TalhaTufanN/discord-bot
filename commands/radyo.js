@@ -10,6 +10,7 @@ const {
 const { errorEmbed, infoEmbed, successEmbed } = require("../utils/embeds");
 const { emojis } = require("../config/emojis");
 const { getAllStationsForGuild } = require("../utils/radioStorage");
+const { getOrCreatePlayer } = require("../utils/lavalink");
 const PerformanceTimer = require("../utils/timer");
 
 module.exports = {
@@ -50,7 +51,7 @@ module.exports = {
     timer.mark("İzin Kontrolleri");
 
     // Helper to generate components
-    const generateComponents = (is247 = false) => {
+    const generateComponents = () => {
       const rows = [];
 
       // 1. Select Menu (All Stations)
@@ -82,9 +83,6 @@ module.exports = {
       return rows;
     };
 
-    // Initial state
-    let is247Active = interaction.client.radioMode === true; // Check global state
-
     // Eski radyo menüsünü (varsa) pasifleştir
     if (!interaction.client.radioPanels) {
       interaction.client.radioPanels = new Map();
@@ -101,7 +99,7 @@ module.exports = {
     // Initial Reply
     const response = await interaction.reply({
       embeds: [infoEmbed("Dinlemek istediğiniz radyo istasyonunu seçin.")],
-      components: generateComponents(is247Active),
+      components: generateComponents(),
     });
 
     timer.mark("Menü Oluşturuldu");
@@ -126,31 +124,6 @@ module.exports = {
         // Defer update immediately to prevent "Unknown interaction" errors
         await i.deferUpdate();
         selectionTimer.mark("Seçim Algılandı (Defer)");
-
-        // Handle 24/7 Toggle
-        if (i.customId === "radio_247") {
-          is247Active = !is247Active;
-          i.client.radioMode = is247Active;
-          await i.editReply({
-            components: generateComponents(is247Active),
-          });
-          return;
-        }
-
-        // Handle Stop
-        if (i.customId === "radio_stop") {
-          const queue = i.client.distube.getQueue(i.guildId);
-          if (queue) {
-            await queue.stop();
-            await i.followUp({ content: "Radyo durduruldu.", ephemeral: true });
-          } else {
-            await i.followUp({
-              content: "Şu anda zaten bir şey çalmıyor.",
-              ephemeral: true,
-            });
-          }
-          return;
-        }
 
         // Handle Station Selection
         if (i.customId === "radio_station_select") {
@@ -188,40 +161,57 @@ module.exports = {
           await i.editReply({
             embeds: [infoEmbed(`${selectedStation.emoji || '📡'} **${selectedStation.name}** istasyonuna bağlanılıyor...\n` +
             `*Yayın hazırlanıyor, lütfen bekleyin. Bu işlem yayının türüne göre 5-10 saniye sürebilir.*`)],
-            components: [] 
+            components: []
           });
 
           try {
-            const queue = i.client.distube.getQueue(i.guildId);
+            // DisTube'da her istasyon icin queue.stop() + voices.join() +
+            // play() yapiliyordu; Lavalink'te ayni player'i tekrar kullaniyoruz.
+            const player = await getOrCreatePlayer(i.client, {
+              guildId: i.guildId,
+              voiceChannelId: voiceChannel.id,
+              textChannelId: i.channelId,
+            });
 
-            if (queue) {
-              await queue.stop();
+            selectionTimer.mark("Kanala Katılım");
+
+            // URL'yi Lavalink cozsun (source vermiyoruz; yayin adresini kendi tanir)
+            const res = await player.search({ query: selectedUrl }, i.user);
+            const track = res?.tracks?.[0];
+            if (!track) {
+              throw new Error("Yayın bulunamadı veya çözümlenemedi.");
+            }
+
+            // Istasyon adi tasiyici isaret: isRadioTrack() ve simdi-caliyor/
+            // metadata/auto-retry yolunun tamami bu anahtara bakiyor.
+            // Kuyruga eklemeden ONCE yazilmali.
+            track.userData = {
+              ...(track.userData || {}),
+              stationName: selectedStation.name,
+            };
+
+            // Radyo kuyrugun tamaminin yerine gecer (eski davranis: queue.stop()).
+            // DisTube'da stop() kuyrugu yok ediyor, dolayisiyla dongu modu da
+            // sifirlaniyordu; Lavalink'te player kalici oldugu icin dongu modunu
+            // elle kapatmazsak "track" dongusu yeni istasyona gecmemizi engeller.
+            if (player.repeatMode !== "off") {
+              await player.setRepeatMode("off");
+            }
+            if (player.queue.tracks.length) {
+              await player.queue.splice(0, player.queue.tracks.length);
               selectionTimer.mark("Eski Kuyruk Temizlendi");
             }
 
-            if (queue) {
-              await new Promise((resolve) => setTimeout(resolve, 200));
-              selectionTimer.mark("bekleme (0.2sn)");
+            await player.queue.add(track);
+
+            // Calan bir sey varsa hemen yeni istasyona gec, yoksa baslat
+            if (player.queue.current) {
+              await player.skip(0, false);
+            } else if (!player.playing) {
+              await player.play();
             }
 
-            const newQueue = i.client.distube.getQueue(i.guildId);
-            if (!newQueue) {
-              await i.client.distube.voices.join(voiceChannel);
-              selectionTimer.mark("Kanala Katılım");
-            }
-
-            // 2. AŞAMA: YAYINI BAŞLAT
-            await i.client.distube.play(voiceChannel, selectedUrl, {
-              member: i.member,
-              textChannel: i.channel,
-              metadata: {
-                interaction: i,
-                stationName: selectedStation.name,
-                timer: selectionTimer, // Pass timer to metadata
-              },
-            });
-
-            selectionTimer.mark("DisTube Play");
+            selectionTimer.mark("Lavalink Play");
 
 // Performans raporlarını göster/gizle: 1 = Açık, 0 = Kapalı
 const SHOW_PERFORMANCE = 0;
@@ -229,18 +219,18 @@ const SHOW_PERFORMANCE = 0;
             // 3. AŞAMA: BAŞARILIYSA MENÜYÜ GERİ GETİR
             let successMsg = `${selectedStation.emoji || '📡'} **${selectedStation.name}** başarıyla başlatıldı!\n` +
                              `Dinlemek istediğiniz başka bir istasyon var mı?`;
-            
+
             if (SHOW_PERFORMANCE) {
               const reports = selectionTimer.getReport();
               const total = selectionTimer.getTotal();
-              successMsg += `\n\n**Performans Raporu:**\n` + 
-                            reports.map(r => `• ${r.step}: \`${r.duration}ms\``).join("\n") + 
+              successMsg += `\n\n**Performans Raporu:**\n` +
+                            reports.map(r => `• ${r.step}: \`${r.duration}ms\``).join("\n") +
                             `\n🏁 **Toplam:** \`${total}ms\``;
             }
 
             await i.editReply({
               embeds: [infoEmbed(successMsg)],
-              components: generateComponents(is247Active) 
+              components: generateComponents()
             });
 
           } catch (error) {
@@ -248,7 +238,7 @@ const SHOW_PERFORMANCE = 0;
             // 4. AŞAMA: HATA VARSA DA MENÜYÜ GERİ GETİR
             await i.editReply({
               embeds: [errorEmbed(`**${selectedStation.name}** bağlantı hatası: ${error.message}`)],
-              components: generateComponents(is247Active)
+              components: generateComponents()
             });
           }
         }

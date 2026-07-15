@@ -2,6 +2,11 @@ const { SlashCommandBuilder } = require("@discordjs/builders");
 const { infoEmbed, errorEmbed } = require("../utils/embeds");
 const { emojis } = require("../config/emojis");
 const PerformanceTimer = require("../utils/timer");
+const { getOrCreatePlayer } = require("../utils/lavalink");
+const {
+  announceAddedTrack,
+  announceAddedPlaylist,
+} = require("../utils/lavalinkEvents");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -43,7 +48,7 @@ module.exports = {
         ephemeral: true,
       });
     }
-    
+
     timer.mark("İzin Kontrolleri");
 
     // Defer reply since playing music might take some time
@@ -51,98 +56,53 @@ module.exports = {
     timer.mark("Yanıt Erteleme (Defer)");
 
     try {
-      // Set textChannel for DisTube events
-      const queue = interaction.client.distube.getQueue(interaction.guildId);
-
-      if (!queue) {
-        interaction.client.distube.voices.join(voiceChannel);
-      }
-
-      // Check if query is a URL
-      const isUrl = query.startsWith("http://") || query.startsWith("https://");
-      const isSpotify =
-        isUrl &&
-        (query.includes("spotify.com") || query.includes("open.spotify"));
-      let playQuery = query;
-
-      // Clean YouTube Mix/Radio URLs (remove list & start_radio)
-      if (
-        isUrl &&
-        (query.includes("youtube.com") || query.includes("youtu.be"))
-      ) {
-        try {
-          const urlObj = new URL(query);
-          const videoId = urlObj.searchParams.get("v");
-          if (videoId) {
-            // Remove unnecessary parameters that cause issues
-            urlObj.searchParams.delete("list");
-            urlObj.searchParams.delete("start_radio");
-            urlObj.searchParams.delete("index");
-            playQuery = urlObj.toString();
-            console.log(`[YouTube] Cleaned URL: ${query} -> ${playQuery}`);
-          }
-        } catch (e) {
-          console.error("URL cleaning error:", e);
-        }
-      }
-      
-      timer.mark("URL Temizleme");
-
-      // If not a URL, search YouTube
-      if (!isUrl) {
-        try {
-          const searchResults = await interaction.client.youtubePlugin.search(
-            query,
-            {
-              limit: 1,
-              type: "video",
-            },
-          );
-
-          if (searchResults && searchResults.length > 0) {
-            playQuery = searchResults[0].url;
-          } else {
-            return await interaction.editReply({
-              embeds: [
-                errorEmbed(
-                  `${emojis.error} YouTube'da "${query}" için sonuç bulunamadı.`,
-                ),
-              ],
-            });
-          }
-        } catch (searchError) {
-          console.error("YouTube search error:", searchError);
-          return await interaction.editReply({
-            embeds: [
-              errorEmbed(
-                `${emojis.error} Arama sırasında hata oluştu: ${searchError.message}`,
-              ),
-            ],
-          });
-        }
-        timer.mark("YouTube Arama");
-      }
-
-      // Stream URL cozumunu play()'i beklemeden baslat. play() metadata'yi
-      // cozerken yt-dlp arka planda stream URL'ini cikariyor; sarki calmaya
-      // gelince getStreamURL onbellekten aliyor. Ikisi sirayla degil paralel
-      // gittigi icin ilk sarkinin baslama suresi belirgin sekilde dusuyor.
-      // Basarisiz olursa sessizce normal cozume duser (icinde catch'li).
-      if (!isSpotify) interaction.client.prefetchStreamURL?.(playQuery);
-
-      await interaction.client.distube.play(voiceChannel, playQuery, {
-        member: interaction.member,
-        textChannel: interaction.channel,
-        metadata: { interaction },
+      // Player'i al/olustur ve ses kanalina bagla. Eski surumdeki
+      // "distube.voices.join + distube.play" ikilisinin yerine geciyor.
+      const player = await getOrCreatePlayer(interaction.client, {
+        guildId: interaction.guildId,
+        voiceChannelId: voiceChannel.id,
+        textChannelId: interaction.channelId,
       });
 
-      timer.mark("DisTube Play");
+      // URL temizleme / ayri YouTube aramasi YOK: Lavalink URL'yi de arama
+      // terimini de kendi cozuyor, ikinci parametre isteyen kullanici.
+      const res = await player.search({ query }, interaction.user);
+      timer.mark("Lavalink Arama");
+
+      if (!res || !res.tracks || res.tracks.length === 0) {
+        return await interaction.editReply({
+          embeds: [
+            errorEmbed(
+              `${emojis.error} YouTube'da "${query}" için sonuç bulunamadı.`,
+            ),
+          ],
+        });
+      }
+
+      // Kuyruga ekleme mesajini komut atiyor (Lavalink'te addSong olayi yok)
+      if (res.loadType === "playlist") {
+        await player.queue.add(res.tracks);
+        await announceAddedPlaylist(interaction.client, player, res.tracks, {
+          name: res.playlist?.name,
+          url: res.playlist?.uri,
+          thumbnail: res.playlist?.thumbnail,
+        });
+      } else {
+        const track = res.tracks[0];
+        await player.queue.add(track);
+        await announceAddedTrack(interaction.client, player, track);
+      }
+
+      // Zaten caliyorsa tekrar play() cagirma; yoksa siradaki sarki atlanir
+      if (!player.playing) await player.play();
+
+      timer.mark("Lavalink Play");
 
       // Edit the deferred reply
       const embed = infoEmbed(`${emojis.search} Aranıyor: \`${query}\``);
       // Performans raporunu deaktif ettik, ileride gerekirse açılabilir
       // embed.setDescription(embed.data.description + timer.getReport());
-      
+
       await interaction.editReply({
         embeds: [embed],
       });
@@ -151,7 +111,7 @@ module.exports = {
       const embed = errorEmbed(`${emojis.error} Müzik çalarken hata oluştu: ${error.message}`);
       // Performans raporunu deaktif ettik, ileride gerekirse açılabilir
       // embed.setDescription(embed.data.description + timer.getReport());
-      
+
       await interaction.editReply({
         embeds: [embed],
       });
