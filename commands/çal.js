@@ -1,11 +1,7 @@
 const { SlashCommandBuilder } = require("@discordjs/builders");
 const { infoEmbed, errorEmbed } = require("../utils/embeds");
 const { emojis } = require("../config/emojis");
-const { YouTubePlugin } = require("@distube/youtube");
 const PerformanceTimer = require("../utils/timer");
-
-// Create YouTube plugin instance for search
-const youtubePlugin = new YouTubePlugin();
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -95,10 +91,13 @@ module.exports = {
       // If not a URL, search YouTube
       if (!isUrl) {
         try {
-          const searchResults = await youtubePlugin.search(query, {
-            limit: 1,
-            type: "video",
-          });
+          const searchResults = await interaction.client.youtubePlugin.search(
+            query,
+            {
+              limit: 1,
+              type: "video",
+            },
+          );
 
           if (searchResults && searchResults.length > 0) {
             playQuery = searchResults[0].url;
@@ -124,12 +123,19 @@ module.exports = {
         timer.mark("YouTube Arama");
       }
 
+      // Stream URL cozumunu play()'i beklemeden baslat. play() metadata'yi
+      // cozerken yt-dlp arka planda stream URL'ini cikariyor; sarki calmaya
+      // gelince getStreamURL onbellekten aliyor. Ikisi sirayla degil paralel
+      // gittigi icin ilk sarkinin baslama suresi belirgin sekilde dusuyor.
+      // Basarisiz olursa sessizce normal cozume duser (icinde catch'li).
+      if (!isSpotify) interaction.client.prefetchStreamURL?.(playQuery);
+
       await interaction.client.distube.play(voiceChannel, playQuery, {
         member: interaction.member,
         textChannel: interaction.channel,
         metadata: { interaction },
       });
-      
+
       timer.mark("DisTube Play");
 
       // Edit the deferred reply
