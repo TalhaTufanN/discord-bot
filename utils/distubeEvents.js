@@ -6,6 +6,7 @@ const {
 } = require("discord.js");
 const { emojis } = require("../config/emojis");
 const { getStationMetadata } = require("./radioMetadata");
+const { getRandomSagopaSong } = require("./sagopa");
 
 // Map to keep track of active radio metadata intervals per guild
 const radioUpdateIntervals = new Map();
@@ -28,10 +29,16 @@ exports.handleDistubeEvents = (client) => {
   // Initialize music messages map
   client.musicMessages = client.musicMessages || new Map();
 
-  // FFmpeg Debugging
-  distube.on("ffmpegDebug", (message) => {
-    console.log(`[FFmpeg Debug] ${message}`);
-  });
+  // Surekli Sagopa modu aktif olan guild'ler (guildId -> { member })
+  client.sagopaGuilds = client.sagopaGuilds || new Map();
+
+  // FFmpeg Debugging — sadece FFMPEG_DEBUG=1 iken. Aksi halde her ilerleme
+  // satiri loglanip disk/log dosyasini sisiriyor (raadiotr-out.log 15MB olmustu).
+  if (process.env.FFMPEG_DEBUG === "1") {
+    distube.on("ffmpegDebug", (message) => {
+      console.log(`[FFmpeg Debug] ${message}`);
+    });
+  }
 
   const updateMusicMessage = async (queue, embed, components = []) => {
     const guildId = queue.textChannel.guild.id;
@@ -226,6 +233,11 @@ exports.handleDistubeEvents = (client) => {
       return;
     }
 
+    // Surekli mod tarafindan otomatik eklenen sarkilar icin de mesaj atma (spam)
+    if (song.metadata && song.metadata.sagopaAuto) {
+      return;
+    }
+
     // Yerel dosya URL'lerini gizle, sadece HTTP(S) URL'lerini link olarak göster
     const isLocalFile = !song.url || song.url.startsWith("file:") || song.url.startsWith("/");
     const songDesc = isLocalFile ? `**${song.name}**` : `[${song.name}](${song.url})`;
@@ -307,6 +319,9 @@ exports.handleDistubeEvents = (client) => {
     if (queue._intentionalStop) {
       queue._intentionalStop = false;
 
+      // Kullanici durdurduysa surekli Sagopa modunu da kapat
+      client.sagopaGuilds.delete(queue.id);
+
       // If 24/7 mode is active, don't say queue finished
       if (client.radioMode) return;
 
@@ -373,6 +388,37 @@ exports.handleDistubeEvents = (client) => {
       }
     }
 
+    // Surekli Sagopa modu: kuyruk dogal olarak bittiyse ve mod aktifse
+    // otomatik olarak yeni bir rastgele Sagopa sarkisi ekle (kuyruk hic bosalmaz).
+    if (client.sagopaGuilds.has(queue.id)) {
+      const ctx = client.sagopaGuilds.get(queue.id);
+      try {
+        if (!queue.voiceChannel) {
+          client.sagopaGuilds.delete(queue.id);
+        } else {
+          const nextSong = await getRandomSagopaSong({
+            member: ctx.member,
+            metadata: { sagopaAuto: true },
+          });
+          if (nextSong) {
+            await distube.play(queue.voiceChannel, nextSong, {
+              member: ctx.member,
+              textChannel: queue.textChannel,
+              metadata: { sagopaAuto: true },
+            });
+            return;
+          }
+          // Sarki bulunamadiysa modu kapat
+          client.sagopaGuilds.delete(queue.id);
+        }
+      } catch (err) {
+        console.error(
+          `[Sagopa Autoplay] ${queue.textChannel?.guild?.name || queue.id}: ${err.message}`,
+        );
+        client.sagopaGuilds.delete(queue.id);
+      }
+    }
+
     // Default behavior for normal songs or failed retries
     if (client.radioMode) {
       return;
@@ -389,6 +435,7 @@ exports.handleDistubeEvents = (client) => {
   // When the bot disconnects from a voice channel
   distube.on("disconnect", (queue) => {
     clearRadioInterval(queue.id);
+    client.sagopaGuilds.delete(queue.id);
     const embed = new EmbedBuilder()
       .setColor("#FF9900")
       .setTitle(`${emojis.info} Bağlantı Kesildi`)
@@ -399,6 +446,9 @@ exports.handleDistubeEvents = (client) => {
 
   // When the queue is empty
   distube.on("empty", (queue) => {
+    // Kanal bos kaldiginda ayrilirken surekli Sagopa modunu da kapat
+    client.sagopaGuilds.delete(queue.id);
+
     // If 24/7 mode is active, don't leave the channel
     if (client.radioMode) {
       return;

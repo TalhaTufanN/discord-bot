@@ -8,6 +8,7 @@ const {
 const { errorEmbed, infoEmbed } = require("../utils/embeds");
 const { getSettings } = require("../utils/settings");
 const { emojis } = require("../config/emojis");
+const { skipToRandomSagopa } = require("../utils/sagopa");
 
 // Debounce timers for volume updates per guild
 const volumeUpdateTimers = new Map();
@@ -216,12 +217,13 @@ module.exports = {
                 }
                 break;
 
-              case "music_skip":
-                if (queue.songs.length > 1 || queue.autoplay) {
-                  try {
-                    await queue.skip();
+              case "music_skip": {
+                // Sirada baska sarki yoksa ama surekli Sagopa modu aktifse
+                // durdurmak yerine yeni rastgele Sagopa'ya gec.
+                const endOrContinue = async () => {
+                  if (await skipToRandomSagopa(queue, interaction.client)) {
                     await interaction.deferUpdate();
-                  } catch (e) {
+                  } else {
                     queue.stop();
                     await interaction.reply({
                       embeds: [
@@ -232,18 +234,20 @@ module.exports = {
                       ephemeral: true,
                     });
                   }
+                };
+
+                if (queue.songs.length > 1 || queue.autoplay) {
+                  try {
+                    await queue.skip();
+                    await interaction.deferUpdate();
+                  } catch (e) {
+                    await endOrContinue();
+                  }
                 } else {
-                  queue.stop();
-                  await interaction.reply({
-                    embeds: [
-                      infoEmbed(
-                        "Sırada şarkı olmadığı için müzik sonlandırıldı.",
-                      ),
-                    ],
-                    ephemeral: true,
-                  });
+                  await endOrContinue();
                 }
                 break;
+              }
 
               case "music_vol_down":
                 const newVolDown = Math.max(0, queue.volume - 10);
