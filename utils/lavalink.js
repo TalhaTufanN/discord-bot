@@ -39,6 +39,10 @@ function createLavalink(client) {
     client: { id: process.env.CLIENT_ID, username: "raadiotr" },
     // Sarki bitince/hata alinca sirakine gec
     autoSkip: true,
+    // Spotify parcalari UnresolvedTrack olarak kuyruga giriyor ve YouTube
+    // aramasi sirasi gelince yapiliyor. Bir parca YouTube'da bulunamazsa
+    // kuyruk kilitlenmesin, sirakine gecsin.
+    autoSkipOnResolveError: true,
     playerOptions: {
       defaultSearchPlatform: "ytsearch",
       // Kuyruk bosaldiginda player'i biz yonetiyoruz (surekli Sagopa modu,

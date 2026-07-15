@@ -8,10 +8,11 @@ lavalink:
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.1"
       repository: "https://maven.lavalink.dev/releases"
       snapshot: false
-    # Spotify linklerini (sarki/album/playlist) cozup YouTube'dan calmak icin.
-    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
-      repository: "https://maven.lavalink.dev/releases"
-      snapshot: false
+    # NOT: LavaSrc (Spotify) BILEREK yok. Album yuklerken parca detaylari icin
+    # /v1/tracks?ids= (multi-get) cagiriyor; Spotify bu endpoint'i 2024-11-27
+    # sonrasi acilan app'lere 403 ile kapatti -> album hic cozulemiyordu.
+    # Spotify artik bot tarafinda cozuluyor: utils/spotify.js — bize multi-get
+    # gerekmiyor, /albums/{id}/tracks yeterli.
   server:
     password: "${LAVALINK_PASSWORD}"   # gercek deger VPS-teki application.yml-de
     sources:
@@ -51,39 +52,6 @@ plugins:
       - ANDROID_VR
       - WEB
       - WEBEMBEDDED
-
-  lavasrc:
-    # Spotify sadece METADATA kaynagi; ses YouTube'dan geliyor ("mirror").
-    # ISRC birebir kayit eslesmesi verdigi icin once o denenir, bulunamazsa
-    # "sanatci - parca" metniyle YouTube aramasi yapilir.
-    providers:
-      - "ytsearch:\"%ISRC%\""
-      - "ytsearch:%QUERY%"
-    sources:
-      spotify: true
-      # ONEMLI: LavaSrc'nin kendi youtube kaynagi KAPALI kalmali, yoksa
-      # dev.lavalink.youtube (youtube-source) plugin'ini gasp eder ve
-      # datacenter IP'de calisan ANDROID_VR/MUSIC client zinciri devre disi kalir.
-      youtube: false
-      applemusic: false
-      deezer: false
-      yandexmusic: false
-      flowerytts: false
-      vkmusic: false
-      tidal: false
-      qobuz: false
-    spotify:
-      # Degerler .env'den geliyor (ecosystem.config.js pm2 env'ine koyuyor).
-      # ":" sonrasi bos varsayilan: kimlik bilgisi yoksa Lavalink yine de
-      # aciliyor, sadece Spotify calismiyor — YouTube/radyo/Sagopa etkilenmiyor.
-      clientId: "${SPOTIFY_CLIENT_ID:}"
-      clientSecret: "${SPOTIFY_CLIENT_SECRET:}"
-      countryCode: "TR"
-      # 6 x 100 = 600 parcaya kadar
-      playlistLoadLimit: 6
-      albumLoadLimit: 6
-      resolveArtistsInSearch: true
-      localFiles: false
 
 metrics:
   prometheus:

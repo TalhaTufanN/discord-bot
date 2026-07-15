@@ -7,6 +7,12 @@ const {
   announceAddedTrack,
   announceAddedPlaylist,
 } = require("../utils/lavalinkEvents");
+const {
+  isSpotifyUrl,
+  resolveSpotify,
+  toUnresolvedTracks,
+  SpotifyUnsupportedError,
+} = require("../utils/spotify");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -63,6 +69,63 @@ module.exports = {
         voiceChannelId: voiceChannel.id,
         textChannelId: interaction.channelId,
       });
+
+      // --- Spotify: metadata Spotify'dan, ses YouTube'dan ---
+      // Lavalink'e Spotify URL'i vermiyoruz; kendimiz cozuyoruz (sebep:
+      // utils/spotify.js basindaki not — LavaSrc'nin multi-get cagrisi
+      // Spotify tarafindan 403'leniyor).
+      if (isSpotifyUrl(query)) {
+        let sp;
+        try {
+          sp = await resolveSpotify(query);
+        } catch (e) {
+          if (e instanceof SpotifyUnsupportedError) {
+            return await interaction.editReply({
+              embeds: [errorEmbed(`${emojis.error} ${e.message}`)],
+            });
+          }
+          console.error("[Çal] Spotify çözümlenemedi:", e?.message || e);
+          return await interaction.editReply({
+            embeds: [
+              errorEmbed(`${emojis.error} Spotify bağlantısı çözülemedi: ${e?.message || "bilinmeyen hata"}`),
+            ],
+          });
+        }
+        timer.mark("Spotify Çözümleme");
+
+        if (!sp.items.length) {
+          return await interaction.editReply({
+            embeds: [errorEmbed(`${emojis.error} \`${sp.name}\` içinde çalınacak parça bulunamadı.`)],
+          });
+        }
+
+        // UnresolvedTrack: YouTube aramasi sirasi gelince yapiliyor, boylece
+        // 50 parcalik album aninda kuyruga giriyor.
+        const tracks = toUnresolvedTracks(interaction.client, sp.items, interaction.user);
+        await player.queue.add(tracks);
+
+        if (sp.type === "album") {
+          await announceAddedPlaylist(interaction.client, player, tracks, {
+            name: sp.name,
+            url: sp.url,
+            thumbnail: sp.thumbnail,
+          });
+        } else {
+          await announceAddedTrack(interaction.client, player, tracks[0]);
+        }
+        if (!player.playing) await player.play();
+        timer.mark("Lavalink Play");
+
+        return await interaction.editReply({
+          embeds: [
+            infoEmbed(
+              sp.type === "album"
+                ? `${emojis.music} **${sp.name}** albümü kuyruğa eklendi (${tracks.length} parça).`
+                : `${emojis.search} Aranıyor: \`${sp.items[0].author} - ${sp.items[0].title}\``,
+            ),
+          ],
+        });
+      }
 
       // URL temizleme / ayri YouTube aramasi YOK: Lavalink URL'yi de arama
       // terimini de kendi cozuyor, ikinci parametre isteyen kullanici.
