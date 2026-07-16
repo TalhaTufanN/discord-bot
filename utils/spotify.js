@@ -11,15 +11,19 @@
 // Spotify sadece METADATA kaynagi; ses YouTube'dan geliyor (eski
 // @distube/spotify'in yaptigi isin aynisi).
 //
-// PLAYLIST DESTEKLENMIYOR: Spotify yeni app'lerde playlist parcalarini
-// tamamen kapatmis — /playlists/{id} meta veriyor ama tracks alani hic yok,
-// /playlists/{id}/tracks ise 403. Editoryal/algoritmik olanlar degil, ALTI
-// farkli kullanici listesinde de ayni sonuc olculdu. Anonim token yolu da
-// olu ("Spotify generated playlists are no longer accessible via anonymous
-// tokens"), spDc ise yalnizca sarki sozleri icin.
+// PLAYLIST: resmi API'de KAPALI. /playlists/{id} meta veriyor ama tracks alani
+// hic yok, /playlists/{id}/tracks 403. Editoryal/algoritmik olanlar degil —
+// ALTI farkli kullanici listesinde de ayni sonuc olculdu. Anonim web-player
+// token yolu da olu (403/400). Tek calisan yol embed sayfasi (asagida,
+// fetchPlaylistViaEmbed): resmi degil, kirilgan, ilk 100 parca ile sinirli;
+// bu yuzden basarisiz olunca sessizce "desteklenmiyor" mesajina dusuyoruz.
 
 const API = "https://api.spotify.com/v1";
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
+const EMBED_BASE = "https://open.spotify.com/embed";
+// Embed sayfasi bir tarayici bekliyor
+const EMBED_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 
 /** Desteklenmeyen tur (playlist/artist) — cagiran taraf kullaniciya gosterir */
 class SpotifyUnsupportedError extends Error {}
@@ -140,19 +144,98 @@ function toItem(track) {
   };
 }
 
+/** Embed sayfasinin 100 parca siniri (olculdu: uzun listeler tam 100'de kesiliyor) */
+const EMBED_TRACK_CAP = 100;
+
+/**
+ * Playlist'i embed sayfasindan cek. RESMI DEGIL — Spotify sayfa yapisini
+ * degistirirse susar; cagiran taraf null'a hazirlikli olmali.
+ *
+ * Neden bu yol: resmi API playlist parcalarini yeni app'lere 403'luyor
+ * (dosya basindaki nota bak). Embed sayfasi auth istemiyor ve editoryal
+ * listeleri de veriyor. Sinir: ilk 100 parca.
+ */
+async function fetchPlaylistViaEmbed(id) {
+  let html;
+  try {
+    const res = await fetch(`${EMBED_BASE}/playlist/${id}`, {
+      headers: { "User-Agent": EMBED_UA },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+    html = await res.text();
+  } catch (e) {
+    console.warn("[Spotify] embed sayfasi alinamadi:", e?.message || e);
+    return null;
+  }
+
+  const m = html.match(/<script id="__NEXT_DATA__" type="application\/json">(.+?)<\/script>/s);
+  if (!m) {
+    console.warn("[Spotify] embed: __NEXT_DATA__ bulunamadi (sayfa yapisi degismis olabilir)");
+    return null;
+  }
+
+  let entity;
+  try {
+    entity = JSON.parse(m[1])?.props?.pageProps?.state?.data?.entity;
+  } catch (e) {
+    console.warn("[Spotify] embed: JSON ayristirilamadi");
+    return null;
+  }
+
+  const list = entity?.trackList;
+  if (!Array.isArray(list) || list.length === 0) {
+    console.warn("[Spotify] embed: trackList bos/yok");
+    return null;
+  }
+
+  const items = list
+    .filter((t) => t && t.title)
+    .map((t) => ({
+      title: t.title,
+      // embed'de sanatci "subtitle" alaninda
+      author: t.subtitle || "",
+      durationMs: t.duration || 0,
+      isrc: undefined, // embed ISRC vermiyor
+      uri: t.uri,
+      artworkUrl: entity.coverArt?.sources?.[0]?.url,
+    }));
+
+  return {
+    name: entity.name || entity.title || "Spotify Çalma Listesi",
+    thumbnail: entity.coverArt?.sources?.[0]?.url,
+    items,
+    // Sinira dayandiysak cagiran taraf kullaniciyi uyarabilsin
+    truncated: items.length >= EMBED_TRACK_CAP,
+  };
+}
+
 /**
  * Spotify baglantisini metadata'ya cevirir.
- * @returns {Promise<{type:"track"|"album", name:string, url?:string, thumbnail?:string, items:Array}>}
- * @throws {SpotifyUnsupportedError} playlist/artist icin
+ * @returns {Promise<{type:"track"|"album"|"playlist", name:string, url?:string, thumbnail?:string, items:Array, truncated?:boolean}>}
+ * @throws {SpotifyUnsupportedError} playlist cozulemezse / artist icin
  */
 async function resolveSpotify(input) {
   const parsed = parseSpotifyUrl(input);
   if (!parsed) throw new Error("Spotify bağlantısı çözümlenemedi.");
 
   if (parsed.type === "playlist") {
-    throw new SpotifyUnsupportedError(
-      "Spotify **playlist** bağlantıları desteklenmiyor — Spotify bu erişimi yeni uygulamalara kapattı. Şarkı ve albüm bağlantıları çalışıyor.",
-    );
+    // Resmi API bu erisimi kapatti; tek yol embed sayfasi. Basarisiz olursa
+    // eski net mesaja duseriz — en kotu senaryo "desteklenmiyor" demek.
+    const pl = await fetchPlaylistViaEmbed(parsed.id);
+    if (!pl) {
+      throw new SpotifyUnsupportedError(
+        "Spotify **playlist** bağlantısı okunamadı — Spotify bu erişimi kısıtlıyor. Şarkı ve albüm bağlantıları çalışıyor.",
+      );
+    }
+    return {
+      type: "playlist",
+      name: pl.name,
+      url: `https://open.spotify.com/playlist/${parsed.id}`,
+      thumbnail: pl.thumbnail,
+      items: pl.items,
+      truncated: pl.truncated,
+    };
   }
   if (parsed.type === "artist") {
     throw new SpotifyUnsupportedError(

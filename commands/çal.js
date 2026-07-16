@@ -104,7 +104,8 @@ module.exports = {
         const tracks = toUnresolvedTracks(interaction.client, sp.items, interaction.user);
         await player.queue.add(tracks);
 
-        if (sp.type === "album") {
+        const isMulti = sp.type === "album" || sp.type === "playlist";
+        if (isMulti) {
           await announceAddedPlaylist(interaction.client, player, tracks, {
             name: sp.name,
             url: sp.url,
@@ -116,15 +117,22 @@ module.exports = {
         if (!player.playing) await player.play();
         timer.mark("Lavalink Play");
 
-        return await interaction.editReply({
-          embeds: [
-            infoEmbed(
-              sp.type === "album"
-                ? `${emojis.music} **${sp.name}** albümü kuyruğa eklendi (${tracks.length} parça).`
-                : `${emojis.search} Aranıyor: \`${sp.items[0].author} - ${sp.items[0].title}\``,
-            ),
-          ],
-        });
+        // Playlist'i embed sayfasindan okuyoruz ve o ilk 100 parcada kesiyor;
+        // sessizce eksik calmak yerine soyleyelim.
+        const kesildi = sp.truncated
+          ? `\n*(Spotify kısıtlaması nedeniyle ilk ${tracks.length} parça alındı.)*`
+          : "";
+
+        let mesaj;
+        if (sp.type === "album") {
+          mesaj = `${emojis.music} **${sp.name}** albümü kuyruğa eklendi (${tracks.length} parça).`;
+        } else if (sp.type === "playlist") {
+          mesaj = `${emojis.music} **${sp.name}** çalma listesi kuyruğa eklendi (${tracks.length} parça).${kesildi}`;
+        } else {
+          mesaj = `${emojis.search} Aranıyor: \`${sp.items[0].author} - ${sp.items[0].title}\``;
+        }
+
+        return await interaction.editReply({ embeds: [infoEmbed(mesaj)] });
       }
 
       // URL temizleme / ayri YouTube aramasi YOK: Lavalink URL'yi de arama

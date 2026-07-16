@@ -38,13 +38,15 @@ Spotify **sadece metadata kaynağı**; ses YouTube'dan geliyor. Kimlik bilgisi `
 **Neden LavaSrc kullanmıyoruz (deneyip vazgeçildi):** LavaSrc albüm yüklerken parça detayları için `/v1/tracks?ids=` (multi-get) çağırıyor. Spotify **2024-11-27 sonrası açılan app'lere tüm multi-get endpoint'lerini 403 ile kapatmış** — `tracks?ids=`, `albums?ids=`, `artists?ids=` hepsi ölçüldü. `preferPartnerApi: false` ve `%ISRC%` sağlayıcısını kaldırmak denendi, çağrı koşulsuz. Bize multi-get gerekmiyor: `/albums/{id}/tracks` zaten ad+sanatçı+süre veriyor.
 
 **Ne çalışıyor (ölçüldü, duyuruya güvenme):**
-| | API | Bizde |
+| | Resmi API | Bizde |
 |---|---|---|
 | Şarkı `/tracks/{id}` | 200 | ✅ |
 | Albüm `/albums/{id}/tracks` | 200 | ✅ (sayfalama, **limit üst sınırı 50** — 100 → `400 Invalid limit`) |
-| Playlist | **403** | ❌ |
+| Playlist | **403** | ✅ embed sayfasından (ilk 100 parça) |
 
-**Playlist neden imkânsız:** `/playlists/{id}` meta veriyor ama `tracks` alanı hiç yok; `/playlists/{id}/tracks` 403 (endpoint deprecated). Editoryal/algoritmik olanlar değil — **6 farklı kullanıcı listesinde de aynı**. Spotify'ın duyurusu sadece "algoritmik + editoryal" diyor, gerçek daha geniş. LavaSrc'nin anonim token yolu da ölü (`Spotify generated playlists are no longer accessible via anonymous tokens`); `spDc` yalnızca şarkı sözleri için. `çal.js` playlist linkinde net mesaj veriyor.
+**Playlist resmi API'de kapalı:** `/playlists/{id}` meta veriyor ama `tracks` alanı hiç yok; `/playlists/{id}/tracks` 403. Editoryal/algoritmik olanlar değil — **6 farklı kullanıcı listesinde de aynı**. Spotify'ın duyurusu sadece "algoritmik + editoryal" diyor, gerçek daha geniş. Anonim web-player token yolu da ölü (403/400); `spDc` yalnızca şarkı sözleri için.
+
+**Playlist çözümü — `fetchPlaylistViaEmbed` (RESMİ DEĞİL):** `open.spotify.com/embed/playlist/{id}` sayfasındaki `__NEXT_DATA__` JSON'ı kazınıyor. Auth istemiyor, **editoryal listeleri de veriyor** (Today's Top Hits). Sınırlar: **ilk 100 parça** (uzun listeler tam 100'de kesiliyor → `truncated` bayrağı, `çal.js` kullanıcıya söylüyor), ISRC yok. Kırılgan: Spotify sayfa yapısını değiştirirse susar → `null` döner, `resolveSpotify` `SpotifyUnsupportedError` fırlatır, kullanıcı net mesaj görür. **En kötü senaryo playlist'in çalışmaması, bot çökmesi değil.** Embed'de sanatçı `subtitle` alanında.
 
 **Mimari:** parçalar `UnresolvedTrack` olarak kuyruğa giriyor (`manager.utils.buildUnresolvedTrack`), YouTube araması sırası gelince yapılıyor → 50 parçalık albüm anında kuyruğa düşüyor. `autoSkipOnResolveError: true` — YouTube'da bulunamayan parça kuyruğu kilitlemiyor. Albüm parça nesneleri "simplified", ISRC içermiyor (o multi-get isterdi) → arama "sanatçı - parça" metniyle. Tekil şarkıda ISRC var.
 
@@ -64,7 +66,7 @@ Rate limit 30 sn'lik kayan pencere — bu ölçekte konu değil. "25 kullanıcı
 `/sagola` (rastgele) çalınca guild ayarı `sagopaAutoplay` (varsayılan açık) ise sürekli mod aktifleşir → şarkı bitince `queueEnd` handler'ı otomatik yeni rastgele Sagopa ekler (aktif guild'ler `client.sagopaGuilds` Map'inde: `{ member, requester }`). `/sagola surekli:Aç|Kapat` ile kalıcı toggle. `/durdur`/terk/kanal-boş → mod kapanır. **Skip:** sürekli mod aktif ve sırada şarkı yoksa durdurmak yerine yeni rastgele Sagopa'ya geçer (`utils/sagopa.js` → `skipToRandomSagopa`).
 
 ## Kapsam dışı / kaldırıldı
-- **Spotify**: şarkı + albüm çalışıyor (`utils/spotify.js`). **Playlist Spotify tarafından kapalı** — yukarıdaki "Spotify" bölümüne bak.
+- **Spotify**: şarkı + albüm + playlist çalışıyor (`utils/spotify.js`). Playlist embed sayfasından, ilk 100 parça — yukarıdaki "Spotify" bölümüne bak.
 - **`queue.autoplay`** ve **`queue.filters`**: Lavalink'te karşılıksız → `kuyruk`/`mevcutşarkı` embed'lerinden kaldırıldı.
 - yt-dlp, cookies.txt, flat playlist override, stream prefetch cache, ses kodlama bağımlılıkları (`@discordjs/voice`, opus, sodium, ffmpeg-static) — hepsi Lavalink'in çözdüğü sorunlar içindi. 16 bağımlılık → 5.
 
