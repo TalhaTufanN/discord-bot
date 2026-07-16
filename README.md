@@ -1,183 +1,292 @@
-# 🎵 RAADIO TR - Profesyonel Discord Müzik ve Radyo Botu
-
 <div align="center">
-  <img src="https://img.shields.io/badge/Node.js-v16.9.0+-green.svg?style=for-the-badge&logo=node.js" alt="Node.js" />
-  <img src="https://img.shields.io/badge/Discord.js-v14-5865F2.svg?style=for-the-badge&logo=discord" alt="Discord.js" />
-  <img src="https://img.shields.io/badge/DisTube-v5-FF0000.svg?style=for-the-badge&logo=youtube" alt="DisTube" />
-  <img src="https://img.shields.io/badge/Lisans-Telife_Tabi-red.svg?style=for-the-badge" alt="Lisans" />
-</div>
+
+# 🎵 RAADIO TR
+
+**Türkçe Discord müzik & radyo botu — Lavalink ses altyapısıyla.**
+
+<img src="https://img.shields.io/badge/Node.js-22+-5FA04E?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" />
+<img src="https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="discord.js" />
+<img src="https://img.shields.io/badge/Lavalink-v4-FF6B6B?style=for-the-badge&logo=apachetomcat&logoColor=white" alt="Lavalink" />
+<img src="https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java" />
+<img src="https://img.shields.io/badge/Lisans-Telife_Tabi-DC2626?style=for-the-badge" alt="Lisans" />
 
 <br />
 
-**RAADIO TR**, Discord sunucunuz için özenle geliştirilmiş, yüksek performanslı, tamamen Türkçe ve zengin özelliklere sahip modern bir müzik ve radyo botudur. Gelişmiş slash komutları, interaktif buton yapısı ve çoklu platform desteği ile her sunucunun ihtiyacını karşılayabilecek kalite standartlarında tasarlanmıştır.
+**≈1 saniyede** çalmaya başlar · YouTube · Spotify · Radyo · Yerel arşiv
 
-## 📑 İçindekiler
-
-- [🌟 Öne Çıkan Özellikler](#-öne-çıkan-özellikler)
-- [🛑 Gereksinimler](#-gereksinimler)
-- [🚀 Kurulum ve Başlangıç](#-kurulum-ve-başlangıç)
-  - [Yerel Geliştirme (Local)](#yerel-geliştirme-local)
-  - [Üretim Ortamı (PM2 ile Production)](#üretim-ortamı-pm2-ile-production)
-- [⚙️ Yapılandırma (.env)](#️-yapılandırma-env)
-- [</> Komutlar](#-komutlar)
-  - [Müzik Komutları](#müzik-komutları)
-  - [Radyo & Sistem Komutları](#radyo--sistem-komutları)
-- [🛠️ Teknolojiler](#️-teknolojiler)
-- [📜 Lisans](#-lisans)
+</div>
 
 ---
 
-## 🌟 Öne Çıkan Özellikler
+## İçindekiler
 
-- **Geniş Platform Desteği**: YouTube, Spotify, SoundCloud ve daha fazlasından yüksek kalitede müzik oynatma ayrıcalığı.
-- **Özel Radyo Sistemi**: Kendi favori radyo istasyonlarınızı (-Stream URL) ekleyin, düzenleyin veya silin; 7/24 kesintisiz müzik keyfi yaşayın.
-- **Gelişmiş Buton Kontrolleri**: Şarkı çalarken anlık olarak beliren etkileşimli butonlarla müziğinizi kolayca yönetin:
-  - 🛑 Durdur, ⏸️ Duraklat/Devam Et, ⏭️ Geç, 👋 Terket
-  - 🔉 Ses Azalt/Artır, 🔀 Karıştır, 🔁 Döngü
-- **Akıllı Kanal Yönetimi**: Bot ayrıldığında veya son şarkı bittiğinde otomatik kuyruk temizliği gerçekleştirilir, gereksiz mesajlar engellenir.
-- **Modern Slash (`/`) Komutları**: Tüm etkileşimler en hızlı reaksiyonu verecek şekilde yeni nesil Discord Slash komutlarıyla optimize edilmiştir.
-- **Çoklu Bot Desteği**: Güçlü PM2 entegrasyonu sayesinde tek makinede birden fazla botu (`raadiotr` ve `raadiotr2`) aktif olarak yönetebilme yeteneği.
-
----
-
-## � Gereksinimler
-
-Projeyi kendi ortamınızda çalıştırmak için aşağıdaki altyapı bileşenlerinin kurulu olması gereklidir:
-
-- [Node.js](https://nodejs.org/) (v16.9.0 veya daha güncel, stabil performans için **v20+** veya **v22+** önerilir)
-- [npm](https://www.npmjs.com/) (Node.js ile birlikte gelir)
-- Git (Sürüm kontrolü için)
-- Aktif bir Discord Bot Tokeni (ve kayıtlı Application ID'si)
-- _(Opsiyonel)_ PM2 (`npm i -g pm2` ile yüklenebilir)
+- [Neden hızlı?](#neden-hızlı)
+- [Özellikler](#özellikler)
+- [Mimari](#mimari)
+- [Gereksinimler](#gereksinimler)
+- [Kurulum](#kurulum)
+- [Yapılandırma](#yapılandırma)
+- [Komutlar](#komutlar)
+- [Spotify desteği](#spotify-desteği)
+- [Sorun giderme](#sorun-giderme)
+- [Lisans](#lisans)
 
 ---
 
-## 🚀 Kurulum ve Başlangıç
+## Neden hızlı?
 
-### 1. Projeyi İndirin
+Bot eskiden ses akışını `yt-dlp` ile çözüyordu; her şarkı için 2–4 ayrı Python süreci başlıyordu. Datacenter IP'lerine YouTube'un uyguladığı PO-token kısıtı da üstüne binince `/çal` komutu **10–15 saniye** sürüyordu.
+
+Ses katmanı **Lavalink**'e taşındı: süreç başlatma yok, InnerTube'a JVM içinden doğrudan HTTP, metadata ve stream tek yerden.
+
+| Aşama | Ses başlangıcı |
+| --- | --- |
+| yt-dlp (sıralı çözüm) | ~10–12 sn |
+| Plugin sırası + paralel prefetch | ~4–5 sn |
+| **Lavalink** | **~1 sn** |
+
+> Rakamlar üretim VPS'inde (Türkiye, datacenter IP) ölçüldü.
+
+---
+
+## Özellikler
+
+- **🎧 Çoklu kaynak** — YouTube (video, arama, playlist), Spotify (şarkı/albüm/playlist), SoundCloud, doğrudan stream URL'leri
+- **📻 Radyo sistemi** — Binlerce istasyon arasında arama, sunucuya özel istasyon listesi, **canlı "şu an çalıyor" bilgisi** (5 sn'de bir güncellenir), yayın koparsa 5 denemeye kadar otomatik yeniden bağlanma
+- **🎛️ Buton kontrolleri** — Önceki, durdur, duraklat/devam, geç, ses ±, karıştır, döngü, terket
+- **🎤 Sagopa modu** — Sunucudaki yerel arşivden çalar; **sürekli mod** açıkken kuyruk hiç boşalmaz, şarkı bitince yenisi gelir
+- **⚡ Tembel çözümleme** — Spotify albümü/playlist'i anında kuyruğa girer, YouTube araması her parça için sırası gelince yapılır
+- **🔀 Çoklu bot** — Tek makinede birden fazla bot, tek Lavalink düğümü, ortak ayar dosyaları
+- **🛡️ Dayanıklılık** — Gateway sağlık izleme, yakalanmayan hata koruması, çözülemeyen parçada kuyruğu kilitlemeden atlama
+
+---
+
+## Mimari
+
+```mermaid
+flowchart LR
+    U([Kullanıcı]) -->|/çal| B[Bot<br/>discord.js v14]
+    B -->|Spotify linki| S[utils/spotify.js<br/>metadata]
+    S -->|başlık + sanatçı| B
+    B -->|arama / URL| L[Lavalink v4<br/>Java 21]
+    L --> Y[(YouTube)]
+    L --> R[(Radyo stream)]
+    L --> F[(Yerel arşiv)]
+    L ==>|ses| V([Discord ses kanalı])
+```
+
+Spotify **yalnızca metadata kaynağı** — ses her zaman YouTube'dan gelir.
+
+| Dosya | Sorumluluk |
+| --- | --- |
+| `index.js` | Giriş noktası, komut/event yükleyici, gateway izleme |
+| `utils/lavalink.js` | Lavalink kurulumu, `getOrCreatePlayer()`, görüntüleme yardımcıları |
+| `utils/lavalinkEvents.js` | Çalıyor embed'i, radyo metadata döngüsü, radyo retry, sürekli Sagopa |
+| `utils/spotify.js` | Spotify link çözümleme (şarkı/albüm/playlist) |
+| `utils/sagopa.js` | Yerel arşiv tarama ve çözümleme |
+| `commands/` | 19 slash komutu |
+| `lavalink/application.yml.example` | Lavalink referans yapılandırması |
+
+---
+
+## Gereksinimler
+
+| | Sürüm | Not |
+| --- | --- | --- |
+| **Node.js** | 22+ | 18+ çalışır, 22 önerilir |
+| **Java** | 21 (headless JRE yeterli) | Lavalink için |
+| **Lavalink** | v4.2+ | `youtube-plugin` ile |
+| **RAM** | ~500 MB boş | Lavalink ~350 MB + bot ~100 MB |
+| PM2 | — | Opsiyonel, üretim için önerilir |
+
+Ayrıca bir **Discord bot tokeni** ve _(Spotify istiyorsanız)_ bir **Spotify uygulaması** gerekir.
+
+> **FFmpeg gerekmez.** Ses kodlamayı Lavalink üstlenir; `@discordjs/voice`, opus ve sodium bağımlılıkları da kaldırıldı.
+
+---
+
+## Kurulum
+
+### 1. Java + Lavalink
+
+```bash
+# Java 21 (Debian/Ubuntu)
+sudo apt update && sudo apt install -y openjdk-21-jre-headless
+
+# Lavalink
+mkdir -p ~/lavalink && cd ~/lavalink
+curl -sL -o Lavalink.jar \
+  https://github.com/lavalink-devs/Lavalink/releases/download/4.2.2/Lavalink.jar
+```
+
+Depodaki örneği yapılandırma olarak kopyalayın ve bir parola belirleyin:
+
+```bash
+cp /path/to/discord-bot/lavalink/application.yml.example ~/lavalink/application.yml
+# application.yml içindeki password alanını düzenleyin
+java -Xmx400M -jar Lavalink.jar
+```
+
+`Lavalink is ready to accept connections` satırını gördüğünüzde hazırdır.
+
+> **Datacenter/VPS IP kullanıyorsanız** `application.yml` içindeki `clients` sırasını değiştirmeyin — `ANDROID_VR` PO-token istemediği için 403 hatalarını önleyen ana etken odur.
+
+### 2. Bot
 
 ```bash
 git clone https://github.com/TalhaTufanN/discord-bot.git
 cd discord-bot
-```
-
-### 2. Gerekli Kütüphaneleri Yükleyin
-
-```bash
 npm install
 ```
 
-### 3. Yapılandırma Dosyasını Oluşturun
-
-Ana dizinde bir `.env` dosyası oluşturun ve bot bilgilerinizi girin (Detaylar [Yapılandırma](#️-yapılandırma-env) başlığında verilmiştir).
-
-### 4. Slash Komutlarını Discord'a Bildirin (Deploy)
-
-Botun slash komutlarının Discord API'sine kaydedilmesi **zorunludur**. Botu başlatmadan önce sadece bir kere (ya da yeni komut eklendiğinde) şu komutu çalıştırın:
+`.env` dosyasını oluşturun ([aşağıda](#yapılandırma)), sonra:
 
 ```bash
-npm run deploy
+npm start          # normal başlatma
+npm run dev        # nodemon ile geliştirme
 ```
 
-### 🔹 Yerel Geliştirme (Local)
+Slash komutları bot her açılışta otomatik olarak Discord'a bildirilir.
 
-Botu geliştirme aşamasında konsol üzerinden normal olarak başlatmak veya değişiklikleri anlık görmek için:
-
-```bash
-# Sadece başlatma
-npm start
-
-# Değişiklikleri anlık izleyerek (nodemon ile) başlatma
-npm run dev
-```
-
-### 🔹 Üretim Ortamı (PM2 ile Production)
-
-Uygulamanın sunucuda 7/24 kapanmadan kesintisiz çalışması için PM2 altyapısı kullanabilirsiniz. Projede çoklu botları kolaylıkla yönetmek üzere `ecosystem.config.js` dosyası yapılandırılmıştır.
+### 3. Üretim (PM2)
 
 ```bash
-# PM2'yi global olarak yükleyin (eğer yoksa)
 npm install -g pm2
 
-# Tüm botları (-veya tekini) başlat
-pm2 start ecosystem.config.js
-
-# Botları monitörlemek ve performans izlemek için
-pm2 monit
+pm2 start ecosystem.config.js               # her iki botu da başlatır
+pm2 start ecosystem.config.js --only raadiotr   # yalnızca ana botu
+pm2 save                                    # yeniden başlatmada geri gelsin
+pm2 logs                                    # canlı log
 ```
+
+`ecosystem.config.js` iki bot tanımlar; ikinci bot **opsiyoneldir** (`.env` içinde `TOKEN2` yoksa `--only raadiotr` kullanın).
+
+> `.env` değişkenlerini değiştirdiyseniz `pm2 restart` **yetmez** — kayıtlı ortamı yeniden kullanır. `pm2 delete <ad> && pm2 start ecosystem.config.js` yapın.
 
 ---
 
-## ⚙️ Yapılandırma (.env)
+## Yapılandırma
 
-Projenin kök dizininde gizli bir `.env` dosyası oluşturun ve içine uygulama bağlantı değişkenlerinizi tanımlayın:
+Kök dizinde `.env` (git'e **girmez**):
 
 ```env
-# -> 1. Ana Bot Değişkenleri
-TOKEN=SİZİN_DİSCORD_BOT_TOKENİNİZ
-CLIENT_ID=BOTUN_CLIENT_ID_SI
+# ── Discord ────────────────────────────────
+TOKEN=bot_tokeni
+CLIENT_ID=bot_client_id
+GUILD_ID=sunucu_id            # virgülle birden fazla yazılabilir
 
-# -> 2. Opsiyonel İkinci Bot Değişkenleri (Çoklu bot kullanacaksanız)
-TOKEN2=İKİNCİ_BOT_TOKEN
-CLIENT_ID2=İKİNCİ_BOT_CLIENT_ID
+# ── İkinci bot (opsiyonel) ─────────────────
+TOKEN2=ikinci_bot_tokeni
+CLIENT_ID2=ikinci_bot_client_id
 
-# -> 3. Sunucu (Guild) ID (Sadece bu sunucuya hızlı komut yüklemek için önerilir)
-GUILD_ID=SUNUCU_ID_NIZ
+# ── Lavalink ───────────────────────────────
+LAVALINK_HOST=127.0.0.1
+LAVALINK_PORT=2333
+LAVALINK_PASSWORD=application_yml_ile_ayni_parola
+
+# ── Spotify (opsiyonel) ────────────────────
+# developer.spotify.com/dashboard -> Create app -> Web API
+# Boş bırakılırsa Spotify çalışmaz, diğer her şey normal çalışır.
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
+
+# ── Yerel arşiv (opsiyonel) ────────────────
+# /sagola komutunun tarayacağı klasör. Lavalink'in okuyabildiği
+# bir yol olmalı (aynı makine).
+SAGOPA_PATH=/root/discord-bot/music/Sagopa Kajmer
 ```
 
 ---
 
-## </> Komutlar
+## Komutlar
 
-Bot, işlevlerine göre ayrılarak gruplandırılmış yüksek performanslı komut setleri sunar.
+### Müzik
 
-### Müzik Komutları
+| Komut | Parametre | Açıklama |
+| --- | --- | --- |
+| `/çal` | `<query>` | Şarkı, arama terimi veya URL çalar (YouTube, Spotify, SoundCloud, stream) |
+| `/duraklat` | — | Çalan şarkıyı duraklatır |
+| `/devam` | — | Duraklatılan şarkıyı devam ettirir |
+| `/geç` | — | Mevcut şarkıyı atlar |
+| `/durdur` | — | Müziği durdurur ve kuyruğu temizler (kanaldan çıkmaz) |
+| `/terket` | — | Ses kanalından ayrılır |
+| `/ses` | `<percentage>` | Ses seviyesi (0–100) |
+| `/kuyruk` | — | Kuyruğu listeler |
+| `/mevcutşarkı` | — | Çalan şarkı + ilerleme çubuğu |
+| `/karıştır` | — | Kuyruğu karıştırır |
+| `/döngü` | `<mode>` | `Kapalı` · `Şarkı` · `Kuyruk` |
 
-| Komut          | Parametre     | Açıklama                                                                                                |
-| -------------- | ------------- | ------------------------------------------------------------------------------------------------------- |
-| `/çal`         | `<şarkı/url>` | Belirtilen şarkıyı, YouTube/Spotify/Soundcloud çalma listesini veya bir URL'yi yüksek kalitede oynatır. |
-| `/durdur`      | Yok           | Tüm müziği anında durdurur ve beklemedeki kuyruğu kalıcı olarak temizler.                               |
-| `/duraklat`    | Yok           | Çalmakta olan geçerli şarkıyı sessizce duraklatır.                                                      |
-| `/devam`       | Yok           | Daha önce duraklatılmış olan müzik yayınına kaldığı yerden devam eder.                                  |
-| `/geç`         | Yok           | O an çalan şarkıyı atlar ve sıradakine geçer. (Eğer sıra boşsa bağlantıyı sonlandırır)                  |
-| `/terket`      | Yok           | Botun bulunduğu ses kanalından anında ayrılmasını zorlar.                                               |
-| `/ses`         | `<düzey>`     | Etkin dinleyiciler için botun ses seviyesini ayarlar (`0` ile `100` arası).                             |
-| `/kuyruk`      | Yok           | Mevcut çalma listesine alınmış şarkıları özel bir sayfa yapısıyla sunar.                                |
-| `/mevcutşarkı` | Yok           | Şu an çalan şarkı hakkında (ilerleme süresi, sanatçı, platform vs.) detaylı istatistik ve bilgi verir.  |
-| `/karıştır`    | Yok           | Çalma kuyruğundaki şarkıların mevcut sırasını rastgele olacak şekilde karıştırır.                       |
-| `/döngü`       | Yok           | Belirlenen döngü modunu geçişli ayarlar (`Kapalı`, `Mevcut Şarkı`, `Tüm Kuyruk`).                       |
+### Radyo
 
-### Radyo & Sistem Komutları
+| Komut | Parametre | Açıklama |
+| --- | --- | --- |
+| `/radyo` | — | Kayıtlı istasyonları menüden çalar |
+| `/radyobul` | `<radyo>` | Binlerce istasyon arasında arar _(otomatik tamamlama)_ |
+| `/radyoekle` | `[liste]` `[manuel]` | Yeni istasyon ekler _(otomatik tamamlama)_ |
+| `/radyoduzenle` | `<isim>` `[yeni_isim]` `[url]` `[aciklama]` `[emoji]` `[kategori]` | İstasyon bilgilerini düzenler |
+| `/radyosil` | `<isim>` | İstasyonu siler |
 
-| Komut           | Parametre      | Açıklama                                                                                  |
-| --------------- | -------------- | ----------------------------------------------------------------------------------------- |
-| `/radyo`        | `<istasyon>`   | Önceden kaydedilmiş canlı radyo istasyonlarından (Listeden) birini anında çalmaya başlar. |
-| `/radyoekle`    | `<isim> <url>` | Sisteme size özel yeni bir canlı radyo istasyonu (`Steam URL`) ekler.                     |
-| `/radyoduzenle` | `<isim> <url>` | Var olan bir radyo istasyonunun adını koruyarak yayın bağlantısını (URL) günceller.       |
-| `/radyosil`     | `<isim>`       | Daha önceden kayıtlı bir radyo istasyonunu sistemden kalıcı olarak siler ve temizler.     |
-| `/kur`          | Yok            | Sunucunuzun bot kontrol paneli için gelişmiş bir müzik kanal kurulumu gerçekleştirir.     |
-| `/yardım`       | Yok            | Botun tüm komutlarını ve mevcut özellikleri barındıran profesyonel yardım menüsünü açar.  |
+### Diğer
 
----
-
-## 🛠️ Teknolojiler
-
-Bu uygulamanın altyapısında aşağıdaki güncel ve güçlü teknolojiler kullanılmaktadır:
-
-- **[Discord.js (v14.19+)](https://discord.js.org/)**: Modern ve hatasız Discord API bağlantısı.
-- **[DisTube (v5.2.3)](https://distube.js.org/)**: Ses işlemlerini otonom çözen stabil müzik kütüphanesi.
-- **[@discordjs/voice](https://discord.js.org/docs/packages/voice/readme)**: Yüksek donanım verimliliği sunan ses çekirdeği.
-- **[FFmpeg](https://ffmpeg.org/)** (`ffmpeg-static`): Medya dönüştürme ve hızlı paket işleme kabiliyetleri.
+| Komut | Parametre | Açıklama |
+| --- | --- | --- |
+| `/sagola` | `[arama]` `[surekli]` | Yerel Sagopa arşivinden çalar; `surekli: Aç` ile kuyruk hiç boşalmaz |
+| `/kur` | — | Botu tek bir kanalla sınırlar |
+| `/yardım` | — | Komut listesi |
 
 ---
 
-## 📜 Lisans
+## Spotify desteği
 
-**© 2026 TalhaTufanN - Tüm Hakları Saklıdır.**
+Spotify **metadata kaynağıdır**; parçalar YouTube'da aranıp oradan çalınır.
 
-Bu projenin kaynak kodlarının, izinsiz bir şekilde kopyalanması, başka bir isimle paylaşılması, herhangi bir açık/kapalı mecrada dağıtılması veya üzerinde çalışılarak tamamen _sizin eserinizmiş_ gibi gösterilmesi **kesinlikle yasaktır**.
+| Bağlantı türü | Durum | Nasıl |
+| --- | --- | --- |
+| Şarkı | ✅ | Resmi Web API |
+| Albüm | ✅ | Resmi Web API (tüm parçalar) |
+| Playlist | ✅ | Embed sayfası — **ilk 100 parça** |
+| Editoryal playlist <br/>(Today's Top Hits vb.) | ✅ | Embed sayfası |
+| Sanatçı | ❌ | Desteklenmiyor |
 
-- ❌ **Yasak Olanlar:** Projeyi klonlayıp hiçbir değişiklik yapmadan veya çok az değişiklik göstererek sahiplenmek, kodları alıp başka platformlarda izinsiz dağıtımını gerçekleştirmek.
-- ✅ **İzin Verilenler:** Projenin gelişimine destek sağlamak amacıyla hata düzeltmeleri (bug fix) oluşturmak veya özellik eklemek için _Commit/Pull Request_ yapmanız serbesttir ve takdir edilir.
+<details>
+<summary><b>Neden playlist için farklı bir yol kullanılıyor?</b></summary>
 
-Geliştirici: `TalhaTufanN`. Herhangi bir özel kullanım veya ek talebiniz için doğrudan geliştiriciyle iletişime geçiniz.
+<br />
+
+Spotify, **27 Kasım 2024'ten sonra** oluşturulan uygulamalara bazı uçları kapattı. Ölçümlerimiz duyurudan daha geniş bir kısıtlama gösterdi:
+
+- `/v1/playlists/{id}/tracks` → **403** (kullanıcı listelerinde de, editoryal listelerde de)
+- `/v1/playlists/{id}` → 200 ama yanıtta `tracks` alanı **hiç yok**
+- Toplu getirme uçları (`/v1/tracks?ids=`, `/v1/albums?ids=`, `/v1/artists?ids=`) → **403**
+
+Son madde, **LavaSrc**'nin bu proje için neden kullanılmadığını da açıklıyor: LavaSrc albüm yüklerken toplu getirme çağrısı yapıyor ve o çağrı 403 alıyor. Bu projede albüm parçaları `/albums/{id}/tracks` ile çekiliyor — toplu getirmeye ihtiyaç duyulmuyor.
+
+Playlist'ler için tek çalışan yol Spotify'ın **embed sayfası**. Resmi bir arayüz değil; Spotify sayfa yapısını değiştirirse çalışmayı bırakabilir. Bu yüzden çözümleme tek bir fonksiyonda izole edilmiş ve başarısız olduğunda kullanıcıya net bir mesaj gösteriliyor — bot çökmez, yalnızca playlist çalışmaz.
+
+</details>
+
+---
+
+## Sorun giderme
+
+| Belirti | Bakılacak yer |
+| --- | --- |
+| Bot açılıyor ama müzik çalmıyor | `pm2 logs lavalink` — düğüm bağlı mı? `curl -H "Authorization: <parola>" http://127.0.0.1:2333/version` |
+| `[Lavalink] Node hatası: ECONNREFUSED` | Lavalink çalışmıyor veya `LAVALINK_PASSWORD` `application.yml` ile uyuşmuyor |
+| YouTube'da 403 / parça çalmıyor | `application.yml` → `clients` sırası; `ANDROID_VR` listede olmalı. `youtube-plugin` sürümünü güncelleyin |
+| Spotify linki çözülmüyor | `.env` içindeki `SPOTIFY_CLIENT_ID/SECRET` dolu mu? Bot loglarında gerçek hata yazar |
+| `.env` değişti ama etkisi yok | `pm2 restart` yetmez → `pm2 delete <ad> && pm2 start ecosystem.config.js` |
+| Slash komutları görünmüyor | `.env` içindeki `GUILD_ID` doğru mu? Komutlar yalnızca oraya bildirilir |
+
+---
+
+## Lisans
+
+**© 2026 TalhaTufanN — Tüm hakları saklıdır.**
+
+Bu projenin kaynak kodlarının izinsiz kopyalanması, başka bir isimle paylaşılması, herhangi bir mecrada dağıtılması veya _kendi eseriymiş_ gibi gösterilmesi **kesinlikle yasaktır**.
+
+- ❌ **Yasak:** Projeyi klonlayıp değişiklik yapmadan (veya çok az değişiklikle) sahiplenmek, kodları başka platformlarda izinsiz dağıtmak.
+- ✅ **Serbest:** Hata düzeltmesi veya özellik eklemek için _Issue / Pull Request_ açmak — memnuniyetle karşılanır.
+
+Geliştirici: **[@TalhaTufanN](https://github.com/TalhaTufanN)** · Özel kullanım talepleri için doğrudan iletişime geçin.
