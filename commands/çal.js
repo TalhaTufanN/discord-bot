@@ -13,6 +13,7 @@ const {
   toUnresolvedTracks,
   SpotifyUnsupportedError,
 } = require("../utils/spotify");
+const { bridgedFromInfo, isYouTubeTrack } = require("../utils/ytbridge");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -167,16 +168,26 @@ module.exports = {
         });
       }
 
+      // YouTube parcalarini kopru (yt-dlp) uzerinden calacak sekilde ceviriyoruz;
+      // YouTube SABR yuzunden dogrudan calamiyor (bkz. utils/ytbridge.js).
+      // Kopruleme resolve aninda olur -> playlist toplu inmez, YouTube disi
+      // (soundcloud/http) parcalar aynen kalir.
+      const toPlayable = (t) =>
+        isYouTubeTrack(t)
+          ? bridgedFromInfo(interaction.client, t.info, interaction.user)
+          : t;
+
       // Kuyruga ekleme mesajini komut atiyor (Lavalink'te addSong olayi yok)
       if (res.loadType === "playlist") {
-        await player.queue.add(res.tracks);
-        await announceAddedPlaylist(interaction.client, player, res.tracks, {
+        const tracks = res.tracks.map(toPlayable);
+        await player.queue.add(tracks);
+        await announceAddedPlaylist(interaction.client, player, tracks, {
           name: res.playlist?.name,
           url: res.playlist?.uri,
           thumbnail: res.playlist?.thumbnail,
         });
       } else {
-        const track = res.tracks[0];
+        const track = toPlayable(res.tracks[0]);
         await player.queue.add(track);
         await announceAddedTrack(interaction.client, player, track);
       }

@@ -44,6 +44,10 @@ function createLavalink(client) {
     // kuyruk kilitlenmesin, sirakine gecsin.
     autoSkipOnResolveError: true,
     playerOptions: {
+      // NOT (2026-08-20): YouTube SABR zorunlulugu youtube-source'u kirdi (bkz.
+      // hafiza youtube-sabr-block) — plugin SABR akisini henuz konusamiyor.
+      // Kullanici YouTube'da israrci; SABR destegi cikinca plugin guncellenecek.
+      // Gecici olarak "scsearch"e alinabilir (SoundCloud SABR'dan etkilenmiyor).
       defaultSearchPlatform: "ytsearch",
       // Kuyruk bosaldiginda player'i biz yonetiyoruz (surekli Sagopa modu,
       // radyo retry). Lavalink kendi basina yok etmesin.

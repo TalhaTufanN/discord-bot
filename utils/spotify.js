@@ -301,12 +301,17 @@ async function resolveSpotify(input) {
  * applyUnresolvedData ile geri isleniyor.
  */
 function toUnresolvedTracks(client, items, requester) {
+  // YouTube SABR yuzunden ses youtube-source'tan cekilemiyor; her parcayi
+  // yt-dlp koprusu uzerinden calan "bridged" UnresolvedTrack yapiyoruz. Cozum
+  // (YouTube arama + kopru) sirasi gelince olur. Bkz. utils/ytbridge.js.
+  const { bridgedFromQuery } = require("./ytbridge");
   return items.map((it) =>
-    client.lavalink.utils.buildUnresolvedTrack(
+    bridgedFromQuery(
+      client,
       {
         title: it.title,
         author: it.author,
-        duration: it.durationMs,
+        durationMs: it.durationMs,
         artworkUrl: it.artworkUrl,
       },
       requester,
