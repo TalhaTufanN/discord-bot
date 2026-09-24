@@ -3,6 +3,7 @@ const { infoEmbed, errorEmbed } = require("../utils/embeds");
 const { emojis } = require("../config/emojis");
 const PerformanceTimer = require("../utils/timer");
 const { getOrCreatePlayer } = require("../utils/lavalink");
+const { resolveRadioUrl } = require("../utils/radioUrl");
 const {
   announceAddedTrack,
   announceAddedPlaylist,
@@ -138,7 +139,8 @@ module.exports = {
 
       // URL temizleme / ayri YouTube aramasi YOK: Lavalink URL'yi de arama
       // terimini de kendi cozuyor, ikinci parametre isteyen kullanici.
-      const res = await player.search({ query }, interaction.user);
+      // Ham-AAC segmentli HLS radyo linki yapistirildiysa kopruye yonlendir.
+      const res = await player.search({ query: await resolveRadioUrl(query) }, interaction.user);
       timer.mark("Lavalink Arama");
 
       // Lavalink cozemedigi kaynagi loadType:"error" ile bildiriyor (or. Spotify

@@ -11,6 +11,7 @@ const { errorEmbed, infoEmbed, successEmbed } = require("../utils/embeds");
 const { emojis } = require("../config/emojis");
 const { getAllStationsForGuild } = require("../utils/radioStorage");
 const { getOrCreatePlayer } = require("../utils/lavalink");
+const { resolveRadioUrl } = require("../utils/radioUrl");
 const PerformanceTimer = require("../utils/timer");
 
 module.exports = {
@@ -176,7 +177,7 @@ module.exports = {
             selectionTimer.mark("Kanala Katılım");
 
             // URL'yi Lavalink cozsun (source vermiyoruz; yayin adresini kendi tanir)
-            const res = await player.search({ query: selectedUrl }, i.user);
+            const res = await player.search({ query: await resolveRadioUrl(selectedUrl) }, i.user);
             const track = res?.tracks?.[0];
             if (!track) {
               throw new Error("Yayın bulunamadı veya çözümlenemedi.");

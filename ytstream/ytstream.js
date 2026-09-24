@@ -10,6 +10,7 @@ const { spawn } = require("child_process");
 const PORT = 2444;
 const HOST = "127.0.0.1";
 const YTDLP = "/usr/local/bin/yt-dlp";
+const FFMPEG = "/usr/bin/ffmpeg";
 const FORMAT = "251/250/249/bestaudio"; // opus/webm önce
 const CACHE = "/root/ytstream/cache";
 const TTL_MS = 60 * 60 * 1000; // 1 saat sonra sil
@@ -85,11 +86,52 @@ function serveFile(fp, req, res) {
   }
 }
 
+// /hls?u=<m3u8>: segmentleri ham ADTS .aac olan HLS radyolari (orn. Wowza
+// ses-only yayinlar). Lavaplayer HLS segmentlerini MPEG-TS sanip parse
+// edemiyor, parca aninda bitiyor. ffmpeg yayini okuyup AAC'yi yeniden
+// kodlamadan (-c:a copy) duz ADTS akisi olarak veriyor; Lavalink onu http
+// kaynagi olarak caliyor. Istek kapaninca ffmpeg de olduruluyor.
+function serveHls(src, req, res) {
+  const args = [
+    "-hide_banner", "-loglevel", "error",
+    "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "5",
+    "-i", src,
+    "-vn", "-c:a", "copy", "-f", "adts", "pipe:1",
+  ];
+  const ff = spawn(FFMPEG, args, { stdio: ["ignore", "pipe", "pipe"] });
+  let err = "";
+  ff.stderr.on("data", (d) => (err = (err + d.toString()).slice(-500)));
+  ff.on("error", (e) => {
+    console.error(`[ytstream] hls ffmpeg HATA:`, e.message);
+    if (!res.headersSent) res.writeHead(502);
+    res.end();
+  });
+  ff.on("close", (code) => {
+    if (code && err) console.error(`[ytstream] hls ffmpeg exit ${code}: ${err}`);
+    res.end();
+  });
+  res.writeHead(200, { "Content-Type": "audio/aac", "Cache-Control": "no-cache" });
+  if (req.method === "HEAD") {
+    ff.kill("SIGKILL");
+    return res.end();
+  }
+  ff.stdout.pipe(res);
+  res.on("close", () => ff.kill("SIGKILL"));
+}
+
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
   if (u.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "text/plain" });
     return res.end("ok");
+  }
+  if (u.pathname === "/hls") {
+    const src = u.searchParams.get("u") || "";
+    if (!/^https?:\/\//i.test(src)) {
+      res.writeHead(400);
+      return res.end("bad url");
+    }
+    return serveHls(src, req, res);
   }
   const v = u.searchParams.get("v");
   if (!v || !/^[\w-]{11}$/.test(v)) {

@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require("discord.js");
 const { errorEmbed, successEmbed, infoEmbed } = require("../utils/embeds");
 const { searchStations, getStationById } = require("../utils/stationsSearch");
 const { getOrCreatePlayer } = require("../utils/lavalink");
+const { resolveRadioUrl } = require("../utils/radioUrl");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -56,7 +57,7 @@ module.exports = {
       });
 
       // URL'yi Lavalink cozsun (source vermiyoruz; yayin adresini kendi tanir)
-      const res = await player.search({ query: station.url }, interaction.user);
+      const res = await player.search({ query: await resolveRadioUrl(station.url) }, interaction.user);
       const track = res?.tracks?.[0];
       if (!track) {
         return interaction.editReply({
