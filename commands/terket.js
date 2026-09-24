@@ -22,14 +22,17 @@ module.exports = {
       return interaction.reply({ embeds: [errorEmbed('Bot ile aynı ses kanalında olmalısınız!')], ephemeral: true });
     }
 
+    // Discord 3 sn icinde yanit bekliyor; destroy() (Lavalink + ses kanali)
+    // bunu asabiliyor, sonra "Uygulama yanit vermedi" cikiyordu. Once defer.
+    await interaction.deferReply();
     try {
       // Bilerek ayrilma: queueEnd radyo retry / surekli Sagopa'yi tetiklemesin
       player.set("intentionalStop", true);
       await player.destroy();
-      await interaction.reply({ embeds: [successEmbed('Ses kanalından ayrıldım. 👋')] });
+      await interaction.editReply({ embeds: [successEmbed('Ses kanalından ayrıldım. 👋')] });
     } catch (error) {
       console.error(error);
-      await interaction.reply({ embeds: [errorEmbed('Kanaldan ayrılırken bir hata oluştu.')], ephemeral: true });
+      await interaction.editReply({ embeds: [errorEmbed('Kanaldan ayrılırken bir hata oluştu.')] });
     }
   },
 };
