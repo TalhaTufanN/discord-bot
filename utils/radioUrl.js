@@ -54,9 +54,11 @@ async function resolveRadioUrl(url) {
     try {
       needsBridge = await hasAdtsSegments(url);
       cache.set(url, { needsBridge, at: Date.now() });
-    } catch {
+    } catch (e) {
+      console.warn(`[radioUrl] HLS tespiti basarisiz (${url}):`, e?.cause?.code || e?.message || e);
       needsBridge = false;
     }
+    console.log(`[radioUrl] ${url} -> ${needsBridge ? "kopru (ham AAC)" : "dogrudan"}`);
   }
   return needsBridge ? `${BRIDGE}/hls?u=${encodeURIComponent(url)}` : url;
 }
